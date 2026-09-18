@@ -26,7 +26,6 @@ interface Profile {
   full_name: string | null;
   email: string;
   avatar_url: string | null;
-  role: string | null;
   /**
    * Opted-in beta feature keys for this account. No current feature
    * reads this — Flows was the last user and went to soft-GA in PR
@@ -148,7 +147,6 @@ interface ProfileRow {
   full_name: string | null;
   email: string;
   avatar_url: string | null;
-  role: string | null;
   beta_features: string[] | null;
   account_id: string | null;
   account_role: string | null;
@@ -192,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await supabase
           .from("profiles")
           .select(
-            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+            "id, full_name, email, avatar_url, beta_features, account_id, account_role",
           )
           .eq("user_id", userId)
           .maybeSingle();
@@ -272,7 +270,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           full_name: data.full_name,
           email: data.email,
           avatar_url: data.avatar_url,
-          role: data.role,
           // `beta_features` is `NOT NULL DEFAULT ARRAY[]` in the DB, but
           // narrow defensively in case the column hasn't been migrated yet
           // (older deployments running 011 lazily) — `null` reads as no

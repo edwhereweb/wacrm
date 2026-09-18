@@ -314,7 +314,7 @@ export function ProfileForm() {
               <div>
                 <dt className="text-muted-foreground">{t('role')}</dt>
                 <dd className="mt-0.5 font-mono text-foreground">
-                  {profile?.role ?? 'user'}
+                  {profile?.account_role ?? 'user'}
                 </dd>
               </div>
               <div>
