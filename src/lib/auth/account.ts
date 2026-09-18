@@ -122,7 +122,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
 
   if (error) {
     console.error("[getCurrentAccount] profile fetch error:", error);
-    throw new ForbiddenError(`Could not load account context: ${error?.message || 'unknown error'}`);
+    throw new ForbiddenError("Could not load account context");
   }
   if (!data || !data.account_id || !data.account_role) {
     // Pre-migration profile, or a manual insert that skipped the
@@ -155,7 +155,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
 
   if (accountErr) {
     console.error("[getCurrentAccount] account fetch error:", accountErr);
-    throw new ForbiddenError(`Could not load account context: ${accountErr?.message || 'unknown error'}`);
+    throw new ForbiddenError("Could not load account context");
   }
   if (!account) {
     // account_id points at no readable account row — orphaned profile
