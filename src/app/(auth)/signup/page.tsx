@@ -60,6 +60,11 @@ function SignupPageInner() {
       return;
     }
 
+    if (!email.toLowerCase().endsWith("@edwhere.com")) {
+      setError("Only @edwhere.com emails are allowed.");
+      return;
+    }
+
     setLoading(true);
 
     // If we have an invite token, point Supabase's verification
