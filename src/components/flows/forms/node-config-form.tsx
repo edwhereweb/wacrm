@@ -868,7 +868,7 @@ function useUserTags(): UserTag[] {
 // ============================================================
 
 interface SendMediaCfg {
-  media_type?: "image" | "video" | "document";
+  media_type?: "image" | "video" | "document" | "audio";
   media_url?: string;
   caption?: string;
   filename?: string;
@@ -882,6 +882,8 @@ interface SendMediaCfg {
 const MEDIA_ACCEPT: Record<NonNullable<SendMediaCfg["media_type"]>, string> = {
   image: "image/png,image/jpeg,image/webp",
   video: "video/mp4,video/3gpp",
+  // Meta supports .ogg (Opus), .mp4, .amr, .mp3, .aac for audio.
+  audio: "audio/ogg,audio/mpeg,audio/mp4,audio/amr,audio/aac",
   document:
     "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain",
 };
@@ -906,6 +908,7 @@ function SendMediaForm({
 
   const mediaType = cfg.media_type ?? "image";
   const isDocument = mediaType === "document";
+  const isAudio = mediaType === "audio";
   const displayName =
     cfg.filename ||
     (cfg.media_url ? cfg.media_url.split("/").pop() ?? "" : "");
@@ -967,6 +970,7 @@ function SendMediaForm({
           <SelectContent>
             <SelectItem value="image">{t("imageLabel")}</SelectItem>
             <SelectItem value="video">{t("videoLabel")}</SelectItem>
+            <SelectItem value="audio">{t("audioLabel")}</SelectItem>
             <SelectItem value="document">
               {t("documentLabel")}
             </SelectItem>
@@ -1032,12 +1036,15 @@ function SendMediaForm({
         />
       </div>
 
-      <TextRow
-        label={t("captionLabel")}
-        value={cfg.caption ?? ""}
-        onChange={(v) => onUpdateConfig({ caption: v })}
-        rows={2}
-      />
+      {/* Audio messages do not support captions in WhatsApp Cloud API. */}
+      {!isAudio && (
+        <TextRow
+          label={t("captionLabel")}
+          value={cfg.caption ?? ""}
+          onChange={(v) => onUpdateConfig({ caption: v })}
+          rows={2}
+        />
+      )}
 
       {isDocument && (
         <div>

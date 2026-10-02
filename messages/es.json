@@ -1192,6 +1192,7 @@
         "mediaTypeLabel": "Tipo de archivo",
         "imageLabel": "Imagen (PNG, JPEG, WebP)",
         "videoLabel": "Video (MP4, 3GP)",
+        "audioLabel": "Audio / Nota de voz (OGG, MP3, AAC, AMR)",
         "documentLabel": "Documento (PDF, Word, Excel, PowerPoint, TXT)",
         "fileLabel": "Archivo",
         "removeFile": "Quitar archivo",

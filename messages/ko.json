@@ -1198,6 +1198,7 @@
         "mediaTypeLabel": "미디어 유형",
         "imageLabel": "이미지 (PNG, JPEG, WebP)",
         "videoLabel": "동영상 (MP4, 3GP)",
+        "audioLabel": "오디오 / 음성 메시지 (OGG, MP3, AAC, AMR)",
         "documentLabel": "문서 (PDF, Word, Excel, PowerPoint, TXT)",
         "fileLabel": "파일",
         "removeFile": "파일 제거",
