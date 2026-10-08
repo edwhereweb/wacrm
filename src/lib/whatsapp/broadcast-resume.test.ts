@@ -365,4 +365,34 @@ describe('planBroadcastResume', () => {
     );
     expect(plan.templateRow?.language).toBe('en');
   });
+
+  it('plans recipients with buttonParams stored in template_params object', async () => {
+    const { plan } = await planBroadcastResume(
+      planDb({
+        broadcast: BROADCAST,
+        config: CONFIG,
+        recipients: [
+          {
+            id: 'r1',
+            template_params: {
+              body: ['Jane'],
+              buttonParams: { 0: 'ORDER-123' },
+            },
+            contact: { phone: '+15551234567' },
+          },
+        ],
+      }),
+      'acct-1',
+      'bc-1',
+      'pending',
+    );
+    expect(plan.planned).toEqual([
+      {
+        recipientRowId: 'r1',
+        phone: '15551234567',
+        params: ['Jane'],
+        messageParams: { buttonParams: { 0: 'ORDER-123' } },
+      },
+    ]);
+  });
 });

@@ -239,13 +239,33 @@ export async function planBroadcastResume(
     phoneNumberId: config.phone_number_id,
     accessToken: decrypt(config.access_token),
     templateRow: resolvedTemplate.row,
-    planned: slice.map((row) => ({
-      recipientRowId: row.id,
-      phone: sanitizePhoneForMeta(contactPhone(row) ?? ''),
-      params: Array.isArray(row.template_params)
-        ? row.template_params.filter((p): p is string => typeof p === 'string')
-        : [],
-    })),
+    planned: slice.map((row) => {
+      const raw = row.template_params;
+      let bodyParams: string[] = [];
+      let buttonParams: Record<number, string> | undefined = undefined;
+
+      if (Array.isArray(raw)) {
+        bodyParams = raw.filter((p): p is string => typeof p === 'string');
+      } else if (raw && typeof raw === 'object') {
+        const obj = raw as {
+          body?: string[];
+          buttonParams?: Record<number, string>;
+        };
+        if (Array.isArray(obj.body)) {
+          bodyParams = obj.body.filter((p): p is string => typeof p === 'string');
+        }
+        if (obj.buttonParams && typeof obj.buttonParams === 'object') {
+          buttonParams = obj.buttonParams;
+        }
+      }
+
+      return {
+        recipientRowId: row.id,
+        phone: sanitizePhoneForMeta(contactPhone(row) ?? ''),
+        params: bodyParams,
+        ...(buttonParams ? { messageParams: { buttonParams } } : {}),
+      };
+    }),
     rejected: 0,
   };
 

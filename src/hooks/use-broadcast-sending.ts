@@ -8,7 +8,7 @@ import {
   batchRetryDelayMs,
 } from '@/lib/broadcast-retry';
 import { normalizeKey } from '@/lib/contacts/dedupe';
-import { Contact, MessageTemplate } from '@/types';
+import { Contact, MessageTemplate, TemplateButton } from '@/types';
 
 export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
@@ -44,6 +44,7 @@ interface BroadcastPayload {
   template: MessageTemplate;
   audience: AudienceConfig;
   variables: Record<string, VariableMapping>;
+  buttonVariables?: Record<number, VariableMapping>;
   /**
    * Media URL for an IMAGE/VIDEO/DOCUMENT header. Required at send
    * time for media-header templates — Meta rejects the send without
@@ -125,6 +126,46 @@ export function resolveVariables(
     // custom_field
     return customValues?.get(v.value) ?? '';
   });
+}
+
+/**
+ * Resolves button parameter variables per contact.
+ */
+export function resolveButtonVariables(
+  buttonVariables: Record<number, VariableMapping> | undefined,
+  contact: Contact,
+  customValues?: Map<string, string>,
+  buttons?: TemplateButton[],
+): Record<number, string> {
+  const result: Record<number, string> = {};
+  if (!buttons || buttons.length === 0) return result;
+
+  buttons.forEach((btn, index) => {
+    const mapping = buttonVariables?.[index];
+    if (mapping) {
+      if (mapping.type === 'static' && mapping.value) {
+        result[index] = mapping.value;
+      } else if (mapping.type === 'field' && mapping.value) {
+        const fieldMap: Record<string, string | undefined> = {
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          company: contact.company,
+        };
+        const val = fieldMap[mapping.value];
+        if (val) result[index] = val;
+      } else if (mapping.type === 'custom_field' && mapping.value) {
+        const val = customValues?.get(mapping.value);
+        if (val) result[index] = val;
+      }
+    }
+
+    if (!result[index] && btn.type === 'COPY_CODE' && btn.example) {
+      result[index] = btn.example;
+    }
+  });
+
+  return result;
 }
 
 /**
@@ -384,8 +425,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           account_id: accountId,
           name: payload.name,
           template_name: payload.template.name,
-          template_language: payload.template.language ?? 'en_US',
-          template_variables: payload.variables,
+          template_variables: {
+            body: payload.variables,
+            ...(payload.buttonVariables ? { buttons: payload.buttonVariables } : {}),
+          },
           audience_filter: {
             type: payload.audience.type,
             tagIds: payload.audience.tagIds,
@@ -432,12 +475,30 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           ),
         ]),
       );
-      const recipientRows = contacts.map((contact) => ({
-        broadcast_id: broadcast.id,
-        contact_id: contact.id,
-        status: 'pending' as const,
-        template_params: paramsByContact.get(contact.id) ?? [],
-      }));
+      const buttonParamsByContact = new Map(
+        contacts.map((contact) => [
+          contact.id,
+          resolveButtonVariables(
+            payload.buttonVariables,
+            contact,
+            customValueIndex.get(contact.id),
+            payload.template.buttons,
+          ),
+        ]),
+      );
+      const recipientRows = contacts.map((contact) => {
+        const bodyParams = paramsByContact.get(contact.id) ?? [];
+        const btnParams = buttonParamsByContact.get(contact.id) ?? {};
+        const hasBtnParams = Object.keys(btnParams).length > 0;
+        return {
+          broadcast_id: broadcast.id,
+          contact_id: contact.id,
+          status: 'pending' as const,
+          template_params: hasBtnParams
+            ? { body: bodyParams, buttonParams: btnParams }
+            : bodyParams,
+        };
+      });
 
       for (let i = 0; i < recipientRows.length; i += INSERT_BATCH_SIZE) {
         const batch = recipientRows.slice(i, i + INSERT_BATCH_SIZE);
@@ -495,13 +556,56 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
         const apiRecipients = batch
           .filter((r) => r.contact?.phone)
-          .map((r) => ({
-            phone: r.contact!.phone as string,
-            // Read back off the row rather than re-resolved, so this
-            // pass and any later resume send identical params.
-            params: Array.isArray(r.template_params) ? r.template_params : [],
-            ...(messageParams ? { messageParams } : {}),
-          }));
+          .map((r) => {
+            const rawParams = r.template_params;
+            let bodyParams: string[] = [];
+            let recipientButtonParams: Record<number, string> | undefined =
+              undefined;
+
+            if (Array.isArray(rawParams)) {
+              bodyParams = rawParams.filter(
+                (p): p is string => typeof p === 'string',
+              );
+            } else if (rawParams && typeof rawParams === 'object') {
+              const obj = rawParams as {
+                body?: string[];
+                buttonParams?: Record<number, string>;
+              };
+              if (Array.isArray(obj.body)) {
+                bodyParams = obj.body.filter(
+                  (p): p is string => typeof p === 'string',
+                );
+              }
+              if (obj.buttonParams && typeof obj.buttonParams === 'object') {
+                recipientButtonParams = obj.buttonParams;
+              }
+            }
+
+            if (!recipientButtonParams && r.contact?.id) {
+              const fallbackBtns = buttonParamsByContact.get(r.contact.id);
+              if (fallbackBtns && Object.keys(fallbackBtns).length > 0) {
+                recipientButtonParams = fallbackBtns;
+              }
+            }
+
+            const sendTimeMessageParams = {
+              ...(messageParams ?? {}),
+              ...(recipientButtonParams &&
+              Object.keys(recipientButtonParams).length > 0
+                ? { buttonParams: recipientButtonParams }
+                : {}),
+            };
+
+            return {
+              phone: r.contact!.phone as string,
+              // Read back off the row rather than re-resolved, so this
+              // pass and any later resume send identical params.
+              params: bodyParams,
+              ...(Object.keys(sendTimeMessageParams).length > 0
+                ? { messageParams: sendTimeMessageParams }
+                : {}),
+            };
+          });
 
         if (apiRecipients.length === 0) continue;
 

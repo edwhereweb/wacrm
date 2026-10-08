@@ -806,6 +806,12 @@
         "enterValue": "Enter value...",
         "loadingFields": "Loading…",
         "noCustomFields": "No custom fields",
+        "buttonParameters": "Button Parameters",
+        "buttonParamDesc": "Configure dynamic parameters for template buttons.",
+        "buttonRequired": "Required",
+        "finalUrl": "Preview URL: {url}",
+        "couponCode": "Coupon code: {code}",
+        "defaultCode": "Default: {code}",
         "unmappedWarning": "Map every placeholder before continuing — still missing <mono>{keys}</mono>. Otherwise those placeholders will ship to Meta as empty strings.",
         "fieldMap": {
           "name": "Name",

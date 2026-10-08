@@ -800,6 +800,12 @@
         "enterValue": "Ingresa un valor...",
         "loadingFields": "Cargando…",
         "noCustomFields": "Sin campos personalizados",
+        "buttonParameters": "Parámetros de botones",
+        "buttonParamDesc": "Configura parámetros dinámicos para los botones de la plantilla.",
+        "buttonRequired": "Requerido",
+        "finalUrl": "URL previa: {url}",
+        "couponCode": "Código de cupón: {code}",
+        "defaultCode": "Predeterminado: {code}",
         "unmappedWarning": "Asigna todas las variables antes de continuar; aún faltan <mono>{keys}</mono>. De lo contrario, esas variables se enviarán a Meta como cadenas vacías.",
         "fieldMap": {
           "name": "Nombre",

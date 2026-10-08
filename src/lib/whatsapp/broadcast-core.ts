@@ -29,6 +29,7 @@ import {
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
+import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -60,6 +61,7 @@ interface PlannedRecipient {
   recipientRowId: string;
   phone: string;
   params: string[];
+  messageParams?: SendTimeParams;
 }
 
 export interface BroadcastPlan {
@@ -273,6 +275,7 @@ export async function deliverBroadcast(
           templateName: plan.templateName,
           language: plan.templateLanguage,
           template: plan.templateRow ?? undefined,
+          messageParams: recipient.messageParams,
           params: recipient.params,
         });
         sentMessageId = result.messageId;

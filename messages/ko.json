@@ -806,6 +806,12 @@
         "enterValue": "값을 입력하세요...",
         "loadingFields": "불러오는 중…",
         "noCustomFields": "커스텀 필드 없음",
+        "buttonParameters": "버튼 매개변수",
+        "buttonParamDesc": "템플릿 버튼의 동적 매개변수를 설정합니다.",
+        "buttonRequired": "필수",
+        "finalUrl": "미리보기 URL: {url}",
+        "couponCode": "쿠폰 코드: {code}",
+        "defaultCode": "기본값: {code}",
         "unmappedWarning": "계속하기 전에 모든 자리표시자를 매핑하세요 — 아직 <mono>{keys}</mono>이(가) 비어 있습니다. 그대로 두면 해당 자리표시자가 빈 문자열로 Meta에 전송됩니다.",
         "fieldMap": {
           "name": "이름",

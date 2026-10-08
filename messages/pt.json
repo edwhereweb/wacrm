@@ -800,6 +800,12 @@
         "enterValue": "Informe o valor...",
         "loadingFields": "Carregando…",
         "noCustomFields": "Nenhum campo personalizado",
+        "buttonParameters": "Parâmetros dos botões",
+        "buttonParamDesc": "Configure parâmetros dinâmicos para os botões do modelo.",
+        "buttonRequired": "Obrigatório",
+        "finalUrl": "URL de pré-visualização: {url}",
+        "couponCode": "Código do cupom: {code}",
+        "defaultCode": "Padrão: {code}",
         "unmappedWarning": "Associe todas as variáveis antes de continuar — ainda faltam <mono>{keys}</mono>. Caso contrário, essas variáveis serão enviadas à Meta como strings vazias.",
         "fieldMap": {
           "name": "Nome",

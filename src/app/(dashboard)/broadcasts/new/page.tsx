@@ -43,6 +43,9 @@ export default function NewBroadcastPage() {
   const [variables, setVariables] = useState<
     Record<string, { type: 'static' | 'field' | 'custom_field'; value: string }>
   >({});
+  const [buttonVariables, setButtonVariables] = useState<
+    Record<number, { type: 'static' | 'field' | 'custom_field'; value: string }>
+  >({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [name, setName] = useState('');
 
@@ -61,6 +64,7 @@ export default function NewBroadcastPage() {
           excludeTagIds: audience.excludeTagIds,
         },
         variables,
+        buttonVariables,
         headerMediaUrl,
       });
       router.push(`/broadcasts/${broadcastId}`);
@@ -107,7 +111,10 @@ export default function NewBroadcastPage() {
       name: name.trim(),
       template_name: template.name,
       template_language: template.language ?? 'en_US',
-      template_variables: variables,
+      template_variables: {
+        body: variables,
+        buttons: buttonVariables,
+      },
       audience_filter: {
         type: audience.type,
         tagIds: audience.tagIds,
@@ -209,6 +216,8 @@ export default function NewBroadcastPage() {
               template={template}
               variables={variables}
               onUpdate={setVariables}
+              buttonVariables={buttonVariables}
+              onButtonVariablesChange={setButtonVariables}
               headerMediaUrl={headerMediaUrl}
               onHeaderMediaUrlChange={setHeaderMediaUrl}
               onNext={() => setCurrentStep(3)}
