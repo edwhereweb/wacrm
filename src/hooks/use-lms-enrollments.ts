@@ -56,6 +56,9 @@ export function useLmsEnrollments(phone: string | null, enabled: boolean) {
       try {
         const result = await fetchLmsEnrollmentsCached(phone, force);
         if (id !== requestId.current) return;
+        if (result.enrollments.length === 0) {
+          lmsEnrollmentsCache.delete(phone);
+        }
         setData(result);
       } catch (err) {
         if (id !== requestId.current) return;

@@ -4,6 +4,7 @@ import {
   LmsError,
   normalizeLmsBaseUrl,
   normalizeLmsEnrollments,
+  getPhoneCandidates,
 } from './enrollments'
 import { TtlCache } from './cache'
 
@@ -41,9 +42,32 @@ describe('normalizeLmsEnrollments', () => {
     expect(r.enrollments).toHaveLength(1)
     expect(r.enrollments[0].kind).toBe('webinar')
   })
+  it('handles direct array and course_name fields', () => {
+    const r = normalizeLmsEnrollments([
+      { id: 'c1', course_name: 'Python for Beginners', status: 'enrolled' },
+    ])
+    expect(r.enrollments).toHaveLength(1)
+    expect(r.enrollments[0].title).toBe('Python for Beginners')
+  })
   it('rejects unknown shapes', () => {
     expect(() => normalizeLmsEnrollments({ foo: 1 })).toThrow(LmsError)
     expect(() => normalizeLmsEnrollments(null)).toThrow(LmsError)
+  })
+})
+
+describe('getPhoneCandidates', () => {
+  it('generates candidates for 10-digit number like 7356543520', () => {
+    const c = getPhoneCandidates('7356543520')
+    expect(c).toContain('7356543520')
+    expect(c).toContain('+917356543520')
+    expect(c).toContain('917356543520')
+  })
+
+  it('generates candidates for +91 formatted number', () => {
+    const c = getPhoneCandidates('+917356543520')
+    expect(c).toContain('+917356543520')
+    expect(c).toContain('7356543520')
+    expect(c).toContain('917356543520')
   })
 })
 

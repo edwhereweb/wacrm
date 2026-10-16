@@ -65,6 +65,11 @@ export class TtlCache<T> {
     }
   }
 
+  delete(key: string) {
+    this.entries.delete(key)
+    this.inflight.delete(key)
+  }
+
   clear() {
     this.entries.clear()
     this.inflight.clear()

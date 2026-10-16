@@ -60,10 +60,14 @@ export async function GET(request: Request) {
         apiKey,
         phone,
       })
+      console.log(`[lms/enrollments] Phone ${phone}: returned ${result.enrollments.length} enrollments`)
       return NextResponse.json(result)
     } catch (err) {
-      if (err instanceof LmsError) return fail(err.code, err.message)
-      console.error('[lms/enrollments] unexpected error')
+      if (err instanceof LmsError) {
+        console.warn(`[lms/enrollments] LmsError for ${phone}: ${err.code} - ${err.message}`)
+        return fail(err.code, err.message)
+      }
+      console.error('[lms/enrollments] unexpected error:', err)
       return fail('unreachable', 'Could not reach the LMS')
     }
   } catch (err) {
