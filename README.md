@@ -161,6 +161,8 @@ Key pages:
 - [WhatsApp connection troubleshooting](./docs/whatsapp-connection-troubleshooting.md)
   — what each "Save Configuration" error means, and the Meta code /
   trace id to quote to Meta support
+- [LMS enrollment webhook](./docs/lms-enrollment-webhook.md) — `POST /api/webhooks/lms-enrollment`,
+  `LMS_WEBHOOK_SECRET` and template settings
 - [Several WABAs on one deployment](./docs/multi-waba.md) — one Meta
   App or several; how `META_APP_SECRET` takes a comma-separated list
 
