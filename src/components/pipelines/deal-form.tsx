@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
@@ -83,7 +83,8 @@ export function DealForm({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [contactTags, setContactTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
-  const [copiedPhone, setCopiedPhone] = useState(false);
+  const router = useRouter();
+  const [openingConversation, setOpeningConversation] = useState(false);
 
   const selectedContact = contacts.find((c) => c.id === contactId) || null;
 
@@ -92,6 +93,72 @@ export function DealForm({
     await navigator.clipboard.writeText(phoneToCopy);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
+  };
+
+  const handleOpenConversation = async () => {
+    if (!selectedContact) return;
+    setOpeningConversation(true);
+
+    try {
+      let convId = linkedConversation?.id;
+
+      // If we don't have a linked conversation yet, check DB or find/create one
+      if (!convId && contactId && accountId) {
+        const { data: existing } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("account_id", accountId)
+          .eq("contact_id", contactId)
+          .order("last_message_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing?.id) {
+          convId = existing.id;
+        } else {
+          // If no conversation exists yet, create one for this contact
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (session?.user) {
+            const { data: created } = await supabase
+              .from("conversations")
+              .insert({
+                account_id: accountId,
+                user_id: session.user.id,
+                contact_id: contactId,
+                status: "open",
+              })
+              .select("id")
+              .maybeSingle();
+            if (created?.id) {
+              convId = created.id;
+            }
+          }
+        }
+      }
+
+      const phone = selectedContact.phone || "";
+      const params = new URLSearchParams();
+      if (convId) params.set("c", convId);
+      if (phone) {
+        params.set("search", phone);
+        params.set("phone", phone);
+      } else if (selectedContact.name) {
+        params.set("search", selectedContact.name);
+      }
+      if (contactId) params.set("contactId", contactId);
+
+      onOpenChange(false);
+      router.push(`/inbox?${params.toString()}`);
+    } catch (err) {
+      console.error("Failed to link to conversation:", err);
+      const phone = selectedContact.phone || selectedContact.name || "";
+      onOpenChange(false);
+      router.push(`/inbox?search=${encodeURIComponent(phone)}&phone=${encodeURIComponent(phone)}`);
+    } finally {
+      setOpeningConversation(false);
+    }
   };
 
   // Reset the form fields every time the sheet opens or its input
@@ -339,15 +406,20 @@ export function DealForm({
                     <span className="text-xs font-semibold text-foreground">
                       {selectedContact.name || contactHandle(selectedContact)}
                     </span>
-                    {linkedConversation && (
-                      <Link
-                        href={`/inbox?c=${linkedConversation.id}`}
-                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20"
-                      >
+                    <button
+                      type="button"
+                      onClick={handleOpenConversation}
+                      disabled={openingConversation}
+                      className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 cursor-pointer"
+                      title={t("linkToConversation")}
+                    >
+                      {openingConversation ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
                         <MessageSquare className="h-3 w-3" />
-                        {t("linkToConversation")}
-                      </Link>
-                    )}
+                      )}
+                      {t("linkToConversation")}
+                    </button>
                   </div>
 
                   {/* Phone & Email */}

@@ -34,6 +34,10 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  /**
+   * Optional search query pre-filled from URL params (e.g. from deal Link to Conversation).
+   */
+  initialSearch?: string;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -52,6 +56,7 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  initialSearch = "",
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
   
@@ -63,9 +68,19 @@ export function ConversationList({
     { label: t("filterClosed"), value: "closed" },
   ], [t]);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch ?? "");
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [loading, setLoading] = useState(true);
+
+  // Sync when initialSearch changes (e.g. user navigated with ?search=... or ?phone=...)
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearch(initialSearch);
+      if (initialSearch.trim()) {
+        setFilter("all");
+      }
+    }
+  }, [initialSearch]);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -179,11 +194,18 @@ export function ConversationList({
 
     if (search.trim()) {
       const q = search.toLowerCase();
+      const cleanQ = q.replace(/\D/g, "");
       result = result.filter((c) => {
         const name = c.contact?.name?.toLowerCase() ?? "";
         const phone = c.contact?.phone?.toLowerCase() ?? "";
         const lastMsg = c.last_message_text?.toLowerCase() ?? "";
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+        if (name.includes(q) || lastMsg.includes(q)) return true;
+        if (phone.includes(q)) return true;
+        if (cleanQ.length >= 4) {
+          const cleanPhone = phone.replace(/\D/g, "");
+          if (cleanPhone.includes(cleanQ) || cleanQ.includes(cleanPhone)) return true;
+        }
+        return false;
       });
     }
 
@@ -232,8 +254,18 @@ export function ConversationList({
             value={search}
             onChange={handleSearchChange}
             placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            className="border-border bg-muted pl-9 pr-8 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
