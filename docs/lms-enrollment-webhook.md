@@ -7,7 +7,7 @@ enrollment confirmation.
 
 | Env var | Required | Purpose |
 | --- | --- | --- |
-| `LMS_WEBHOOK_SECRET` | yes | Shared secret. Sent as `X-Webhook-Secret: <secret>` or `Authorization: ****** Missing/wrong → `401` (`503` if unset on the server). |
+| `LMS_WEBHOOK_SECRET` | yes | Shared secret, sent in the `X-Webhook-Secret` header or as a ****** in `Authorization`. Missing/wrong → `401` (`503` if unset on the server). |
 | `LMS_ENROLLMENT_ACCOUNT_ID` | if several accounts | Account whose WhatsApp number sends the message. Defaults to the only account with WhatsApp configured. |
 | `LMS_ENROLLMENT_TEMPLATE_NAME` | no | Template name (default `lms_enrollment_confirmation`). |
 | `LMS_ENROLLMENT_TEMPLATE_LANGUAGE` | no | Template language (default `en_US`). |
