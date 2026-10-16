@@ -30,9 +30,16 @@ import {
   MessageSquare,
   DollarSign,
   Loader2,
+  Phone,
+  Mail,
+  Tag as TagIcon,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import type { Tag } from "@/types";
+import { LmsEnrollmentsSection } from "@/components/inbox/lms-enrollments-section";
+import { contactHandle } from "@/lib/whatsapp/wa-identity";
 
 interface DealFormProps {
   open: boolean;
@@ -75,6 +82,17 @@ export function DealForm({
   const [statusAction, setStatusAction] = useState<DealStatus | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [contactTags, setContactTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
+  const [copiedPhone, setCopiedPhone] = useState(false);
+
+  const selectedContact = contacts.find((c) => c.id === contactId) || null;
+
+  const handleCopyPhone = async (phoneToCopy: string) => {
+    if (!phoneToCopy) return;
+    await navigator.clipboard.writeText(phoneToCopy);
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2000);
+  };
 
   // Reset the form fields every time the sheet opens or its input
   // props change. This is a legitimate prop-driven sync; the rule is
@@ -145,6 +163,37 @@ export function DealForm({
         .maybeSingle();
       if (cancelled) return;
       setLinkedConversation((data as Conversation | null) ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, contactId, supabase]);
+
+  // Fetch tags for selected contact
+  useEffect(() => {
+    if (!open || !contactId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setContactTags([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("contact_tags")
+        .select("id, tag_id, tags(*)")
+        .eq("contact_id", contactId);
+      if (cancelled) return;
+      if (data) {
+        const mapped = data
+          .filter((ct: Record<string, unknown>) => ct.tags)
+          .map((ct: Record<string, unknown>) => ({
+            ...(ct.tags as Tag),
+            contact_tag_id: ct.id as string,
+          }));
+        setContactTags(mapped);
+      } else {
+        setContactTags([]);
+      }
     })();
     return () => {
       cancelled = true;
@@ -284,14 +333,84 @@ export function DealForm({
                 ))}
               </select>
 
-              {linkedConversation && (
-                <Link
-                  href="/inbox"
-                  className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
-                >
-                  <MessageSquare className="h-3 w-3" />
-                  {t("linkToConversation")}
-                </Link>
+              {selectedContact && (
+                <div className="mt-2 rounded-lg border border-border/60 bg-muted/40 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      {selectedContact.name || contactHandle(selectedContact)}
+                    </span>
+                    {linkedConversation && (
+                      <Link
+                        href={`/inbox?c=${linkedConversation.id}`}
+                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        {t("linkToConversation")}
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Phone & Email */}
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{contactHandle(selectedContact)}</span>
+                      </div>
+                      {contactHandle(selectedContact) && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPhone(contactHandle(selectedContact))}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                          title="Copy number"
+                        >
+                          {copiedPhone ? (
+                            <Check className="h-3 w-3 text-primary" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {selectedContact.email && (
+                      <div className="flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{selectedContact.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tags */}
+                  {contactTags.length > 0 && (
+                    <div className="space-y-1 border-t border-border/40 pt-2">
+                      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <TagIcon className="h-3 w-3" />
+                        <span>Tags</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {contactTags.map((tag) => (
+                          <span
+                            key={tag.contact_tag_id}
+                            className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                            style={{
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LMS Enrollments (Courses & Webinars) */}
+                  {selectedContact.phone?.trim() && (
+                    <div className="border-t border-border/40 pt-2">
+                      <LmsEnrollmentsSection phone={selectedContact.phone} />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
