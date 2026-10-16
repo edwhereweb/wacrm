@@ -1,4 +1,4 @@
-import type { Deal, PipelineStage } from "@/types";
+import type { Deal, PipelineStage } from '@/types';
 
 /**
  * Pipeline CSV export.
@@ -12,23 +12,23 @@ import type { Deal, PipelineStage } from "@/types";
 export const EXPORT_CHUNK_SIZE = 500;
 
 export const PIPELINE_CSV_HEADERS = [
-  "Deal Title",
-  "Deal Value",
-  "Currency",
-  "Stage Name",
-  "Contact Name",
-  "Phone Number",
-  "Email",
-  "Created Date",
-  "Last Updated Date",
-  "Deal Owner/Assignee",
+  'Deal Title',
+  'Deal Value',
+  'Currency',
+  'Stage Name',
+  'Contact Name',
+  'Phone Number',
+  'Email',
+  'Created Date',
+  'Last Updated Date',
+  'Deal Owner/Assignee',
 ] as const;
 
-const UTF8_BOM = "\uFEFF";
+const UTF8_BOM = '\uFEFF';
 
 /** Escape one CSV cell: quote when it holds a comma, quote or newline. */
 export function escapeCsvCell(value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) return '';
   let s = String(value);
   // Neutralise spreadsheet formula injection from user-entered text.
   if (/^[=@\t\r]/.test(s)) s = `'${s}`;
@@ -36,19 +36,19 @@ export function escapeCsvCell(value: unknown): string {
 }
 
 function rawCell(value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) return '';
   const s = String(value);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function buildPipelineCsv(
   deals: Deal[],
-  stages: Pick<PipelineStage, "id" | "name">[],
+  stages: Pick<PipelineStage, 'id' | 'name'>[]
 ): string {
   const stageNames = new Map(stages.map((s) => [s.id, s.name]));
-  const lines = [PIPELINE_CSV_HEADERS.map(escapeCsvCell).join(",")];
+  const lines = [PIPELINE_CSV_HEADERS.map(escapeCsvCell).join(',')];
   for (const d of deals) {
-    const stageName = d.stage?.name ?? stageNames.get(d.stage_id) ?? "";
+    const stageName = d.stage?.name ?? stageNames.get(d.stage_id) ?? '';
     lines.push(
       [
         escapeCsvCell(d.title),
@@ -62,23 +62,27 @@ export function buildPipelineCsv(
         rawCell(d.created_at),
         rawCell(d.updated_at),
         escapeCsvCell(d.assignee?.full_name || d.assignee?.email),
-      ].join(","),
+      ].join(',')
     );
   }
-  return UTF8_BOM + lines.join("\r\n") + "\r\n";
+  return UTF8_BOM + lines.join('\r\n') + '\r\n';
 }
 
 /** Safe, timestamped filename: `pipeline-<name>-YYYYMMDD-HHmmss.csv`. */
 export function pipelineExportFilename(name: string, now = new Date()): string {
   const slug =
     name
-      .normalize("NFKD")
-      .replace(/[^\w\s-]/g, "")
+      .normalize('NFKD')
+      .replace(/[^\w\s-]/g, '')
       .trim()
-      .replace(/\s+/g, "-")
+      .replace(/\s+/g, '-')
       .toLowerCase()
-      .slice(0, 60) || "pipeline";
-  const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
+      .slice(0, 60) || 'pipeline';
+  const ts = now
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace('T', '-')
+    .slice(0, 15);
   return `pipeline-${slug}-${ts}.csv`;
 }
 
@@ -89,19 +93,19 @@ interface PageResult {
 
 /** Minimal structural type of the Supabase client used here. */
 export interface DealsQueryClient {
-  from(table: "deals"): {
+  from(table: 'deals'): {
     select(columns: string): {
       eq(
         column: string,
-        value: string,
+        value: string
       ): {
         order(
           column: string,
-          opts: { ascending: boolean },
+          opts: { ascending: boolean }
         ): {
           order(
             column: string,
-            opts: { ascending: boolean },
+            opts: { ascending: boolean }
           ): { range(from: number, to: number): PromiseLike<PageResult> };
         };
       };
@@ -117,17 +121,19 @@ export async function fetchAllPipelineDeals(
   supabase: DealsQueryClient,
   pipelineId: string,
   onProgress?: (count: number) => void,
-  chunkSize = EXPORT_CHUNK_SIZE,
+  chunkSize = EXPORT_CHUNK_SIZE
 ): Promise<Deal[]> {
   const all: Deal[] = [];
   for (let from = 0; ; from += chunkSize) {
     const { data, error } = await supabase
-      .from("deals")
-      .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
-      .eq("pipeline_id", pipelineId)
+      .from('deals')
+      .select(
+        '*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)'
+      )
+      .eq('pipeline_id', pipelineId)
       // id tiebreaker keeps pagination stable across pages.
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(from, from + chunkSize - 1);
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as Deal[];
@@ -141,9 +147,9 @@ export async function fetchAllPipelineDeals(
 }
 
 export function downloadCsv(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
