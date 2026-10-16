@@ -85,6 +85,7 @@ export function DealForm({
   const [contactTags, setContactTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const router = useRouter();
   const [openingConversation, setOpeningConversation] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   const selectedContact = contacts.find((c) => c.id === contactId) || null;
 
