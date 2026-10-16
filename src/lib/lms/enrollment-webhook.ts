@@ -33,6 +33,10 @@ export interface EnrollmentPayload {
   courseTitle: string;
   appDownloadUrl: string;
   groupUrl: string;
+  /** Optional enrollment reference / explicit idempotency key from the LMS. */
+  enrollmentId?: string;
+  courseId?: string;
+  idempotencyKey?: string;
 }
 
 export type ParseResult =
@@ -98,6 +102,10 @@ export function parseEnrollmentPayload(
     'course_group_url',
   ]);
 
+  const enrollmentId = pick(o, ['enrollment_id', 'enrollmentId']);
+  const courseId = pick(o, ['course_id', 'courseId']);
+  const idempotencyKey = pick(o, ['idempotency_key', 'idempotencyKey']);
+
   const errors: string[] = [];
   const phoneDigits = phone.replace(/\D/g, '');
   if (!phone) errors.push('phone is required');
@@ -114,7 +122,16 @@ export function parseEnrollmentPayload(
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    payload: { phone, studentName, courseTitle, appDownloadUrl, groupUrl },
+    payload: {
+      phone,
+      studentName,
+      courseTitle,
+      appDownloadUrl,
+      groupUrl,
+      ...(enrollmentId && { enrollmentId }),
+      ...(courseId && { courseId }),
+      ...(idempotencyKey && { idempotencyKey }),
+    },
   };
 }
 
@@ -242,7 +259,12 @@ export async function dispatchEnrollmentConfirmation(
   db: SupabaseClient,
   accountId: string,
   payload: EnrollmentPayload,
-  cfg: DispatchConfig = getDispatchConfig()
+  cfg: DispatchConfig = getDispatchConfig(),
+  onResolved?: (ids: {
+    contactId: string;
+    conversationId: string;
+    contactCreated: boolean;
+  }) => void
 ): Promise<DispatchResult> {
   const resolved = await resolveConversationByPhone(
     db,
@@ -250,6 +272,11 @@ export async function dispatchEnrollmentConfirmation(
     payload.phone,
     payload.studentName
   );
+  onResolved?.({
+    contactId: resolved.contactId,
+    conversationId: resolved.conversationId,
+    contactCreated: resolved.contactCreated,
+  });
   const base = {
     conversationId: resolved.conversationId,
     contactId: resolved.contactId,

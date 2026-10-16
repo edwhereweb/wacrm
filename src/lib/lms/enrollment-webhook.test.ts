@@ -61,6 +61,15 @@ function fakeDb() {
   const db = {
     from: (table: string) => ({
       insert: (row: Record<string, unknown>) => {
+        // Audit table unavailable → ingestion must fail open.
+        if (table === 'lms_enrollment_events') {
+          return {
+            select: () => ({
+              single: () =>
+                Promise.resolve({ data: null, error: { code: 'XX000' } }),
+            }),
+          };
+        }
         if (table === 'messages') inserts.push(row);
         return Promise.resolve({ error: null });
       },
