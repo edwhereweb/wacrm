@@ -257,14 +257,27 @@ async function requestLmsUrl(
   }
 }
 
+export function normalizeEmail(email: string): string | null {
+  const e = email.trim().toLowerCase()
+  return /^[^\s@]+@[^\s@]+$/.test(e) ? e : null
+}
+
+/**
+ * Lookup precedence (stable, first non-empty result wins):
+ *   1. phone — each normalized phone candidate, in getPhoneCandidates order
+ *   2. email — lowercased/trimmed
+ * Either identifier alone is sufficient; a phone that matches nothing (or an
+ * email that mismatches) never blocks the other identifier from resolving.
+ */
 export async function fetchLmsEnrollments(opts: {
   baseUrl: string
   apiKey: string
-  phone: string
+  phone?: string | null
+  email?: string | null
   fetchImpl?: typeof fetch
   timeoutMs?: number
 }): Promise<LmsEnrollmentsResult> {
-  const { baseUrl, apiKey, phone, fetchImpl = fetch, timeoutMs = LMS_TIMEOUT_MS } = opts
+  const { baseUrl, apiKey, phone, email, fetchImpl = fetch, timeoutMs = LMS_TIMEOUT_MS } = opts
 
   let cleanBase = baseUrl.replace(/\/+$/, '')
   if (cleanBase.endsWith('/api/v1')) {
@@ -273,14 +286,21 @@ export async function fetchLmsEnrollments(opts: {
     cleanBase = cleanBase.slice(0, -'/api'.length)
   }
 
-  const candidates = getPhoneCandidates(phone)
+  const normalizedEmail = email ? normalizeEmail(email) : null
+  const queries: string[] = [
+    ...(phone ? getPhoneCandidates(phone) : []).map((p) => `phone=${encodeURIComponent(p)}`),
+    ...(normalizedEmail ? [`email=${encodeURIComponent(normalizedEmail)}`] : []),
+  ]
+  if (queries.length === 0) {
+    throw new LmsError('invalid_phone', 'A phone number or email is required')
+  }
   let lastNonOkStatus: number | null = null
 
-  // Iterate over candidate phone formats (e.g. "+917356543520", "7356543520", "917356543520")
-  for (const candidatePhone of candidates) {
+  // Iterate over candidate identifiers (phone formats first, then email)
+  for (const query of queries) {
     const endpoints = [
-      `${cleanBase}/api/v1/contacts/enrollments?phone=${encodeURIComponent(candidatePhone)}`,
-      `${cleanBase}/api/v1/enrollments?phone=${encodeURIComponent(candidatePhone)}`,
+      `${cleanBase}/api/v1/contacts/enrollments?${query}`,
+      `${cleanBase}/api/v1/enrollments?${query}`,
     ]
 
     for (const url of endpoints) {

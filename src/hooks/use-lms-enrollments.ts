@@ -14,12 +14,20 @@ export class LmsFetchError extends Error {
 // switches within the session. Errors are never cached.
 export const lmsEnrollmentsCache = new TtlCache<LmsEnrollmentsResult>();
 
-async function loadEnrollments(phone: string): Promise<LmsEnrollmentsResult> {
+function lmsKey(phone: string | null, email: string | null) {
+  return `${phone?.trim() ?? ""}|${email?.trim().toLowerCase() ?? ""}`;
+}
+
+async function loadEnrollments(
+  phone: string | null,
+  email: string | null,
+): Promise<LmsEnrollmentsResult> {
+  const params = new URLSearchParams();
+  if (phone?.trim()) params.set("phone", phone.trim());
+  if (email?.trim()) params.set("email", email.trim());
   let res: Response;
   try {
-    res = await fetch(
-      `/api/integrations/lms/enrollments?phone=${encodeURIComponent(phone)}`,
-    );
+    res = await fetch(`/api/integrations/lms/enrollments?${params}`);
   } catch {
     throw new LmsFetchError("network");
   }
@@ -30,11 +38,25 @@ async function loadEnrollments(phone: string): Promise<LmsEnrollmentsResult> {
   return body as LmsEnrollmentsResult;
 }
 
-export function fetchLmsEnrollmentsCached(phone: string, force = false) {
-  return lmsEnrollmentsCache.get(phone, () => loadEnrollments(phone), { force });
+export function fetchLmsEnrollmentsCached(
+  phone: string | null,
+  email: string | null,
+  force = false,
+) {
+  return lmsEnrollmentsCache.get(
+    lmsKey(phone, email),
+    () => loadEnrollments(phone, email),
+    { force },
+  );
 }
 
-export function useLmsEnrollments(phone: string | null, enabled: boolean) {
+export function useLmsEnrollments(
+  phone: string | null,
+  email: string | null,
+  enabled: boolean,
+) {
+  const hasId = !!(phone?.trim() || email?.trim());
+  const key = lmsKey(phone, email);
   const [data, setData] = useState<LmsEnrollmentsResult | null>(null);
   const [error, setError] = useState<LmsFetchError["code"] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,9 +64,9 @@ export function useLmsEnrollments(phone: string | null, enabled: boolean) {
 
   const run = useCallback(
     async (force: boolean) => {
-      if (!phone) return;
+      if (!hasId) return;
       const id = ++requestId.current;
-      const cached = force ? undefined : lmsEnrollmentsCache.peek(phone);
+      const cached = force ? undefined : lmsEnrollmentsCache.peek(key);
       if (cached) {
         setData(cached);
         setError(null);
@@ -54,10 +76,10 @@ export function useLmsEnrollments(phone: string | null, enabled: boolean) {
       setLoading(true);
       setError(null);
       try {
-        const result = await fetchLmsEnrollmentsCached(phone, force);
+        const result = await fetchLmsEnrollmentsCached(phone, email, force);
         if (id !== requestId.current) return;
         if (result.enrollments.length === 0) {
-          lmsEnrollmentsCache.delete(phone);
+          lmsEnrollmentsCache.delete(key);
         }
         setData(result);
       } catch (err) {
@@ -68,17 +90,17 @@ export function useLmsEnrollments(phone: string | null, enabled: boolean) {
         if (id === requestId.current) setLoading(false);
       }
     },
-    [phone],
+    [phone, email, hasId, key],
   );
 
   useEffect(() => {
-    if (!enabled || !phone) return;
+    if (!enabled || !hasId) return;
     run(false);
     const ref = requestId;
     return () => {
       ref.current++;
     };
-  }, [enabled, phone, run]);
+  }, [enabled, hasId, key, run]);
 
   const refresh = useCallback(() => run(true), [run]);
   return { data, error, loading, refresh };
