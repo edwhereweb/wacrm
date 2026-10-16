@@ -478,9 +478,12 @@ export function DealForm({
                   )}
 
                   {/* LMS Enrollments (Courses & Webinars) */}
-                  {selectedContact.phone?.trim() && (
+                  {(selectedContact.phone?.trim() || selectedContact.email?.trim()) && (
                     <div className="border-t border-border/40 pt-2">
-                      <LmsEnrollmentsSection phone={selectedContact.phone} />
+                      <LmsEnrollmentsSection
+                        phone={selectedContact.phone}
+                        email={selectedContact.email}
+                      />
                     </div>
                   )}
                 </div>

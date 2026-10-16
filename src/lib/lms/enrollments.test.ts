@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   fetchLmsEnrollments,
+  normalizeEmail,
   LmsError,
   normalizeLmsBaseUrl,
   normalizeLmsEnrollments,
@@ -75,7 +76,7 @@ describe('fetchLmsEnrollments', () => {
   const base = { baseUrl: 'https://lms.test', apiKey: 'secret', phone: '+1555' }
 
   it('calls the LMS endpoint with the x-api-key header', async () => {
-    const f = vi.fn().mockResolvedValue(json({ enrollments: [] }))
+    const f = vi.fn().mockImplementation(async () => json({ enrollments: [] }))
     await fetchLmsEnrollments({ ...base, fetchImpl: f })
     const [url, init] = f.mock.calls[0]
     expect(url).toBe('https://lms.test/api/v1/contacts/enrollments?phone=%2B1555')
@@ -98,6 +99,49 @@ describe('fetchLmsEnrollments', () => {
     await expect(fetchLmsEnrollments({ ...base, fetchImpl: net })).rejects.toMatchObject({ code: 'unreachable' })
     const to = vi.fn().mockRejectedValue(Object.assign(new Error('t'), { name: 'TimeoutError' }))
     await expect(fetchLmsEnrollments({ ...base, fetchImpl: to })).rejects.toMatchObject({ code: 'timeout' })
+  })
+})
+
+describe('fetchLmsEnrollments identifiers', () => {
+  const base = { baseUrl: 'https://lms.test', apiKey: 'secret' }
+  const hit = { enrollments: [{ id: '1', title: 'Course A' }] }
+
+  it('phone-only returns enrollment', async () => {
+    const f = vi.fn().mockResolvedValue(json(hit))
+    const r = await fetchLmsEnrollments({ ...base, phone: '+917356543520', fetchImpl: f })
+    expect(r.enrollments).toHaveLength(1)
+    expect(f.mock.calls[0][0]).toContain('phone=')
+  })
+  it('email-only returns enrollment with normalized email', async () => {
+    const f = vi.fn().mockResolvedValue(json(hit))
+    const r = await fetchLmsEnrollments({ ...base, email: '  A@B.Com ', fetchImpl: f })
+    expect(r.enrollments).toHaveLength(1)
+    expect(f.mock.calls[0][0]).toBe('https://lms.test/api/v1/contacts/enrollments?email=a%40b.com')
+  })
+  it('falls back to email when phone matches nothing', async () => {
+    const f = vi.fn().mockImplementation(async (url: string) =>
+      url.includes('email=') ? json(hit) : json({}, 404),
+    )
+    const r = await fetchLmsEnrollments({ ...base, phone: '+917356543520', email: 'a@b.com', fetchImpl: f })
+    expect(r.enrollments).toHaveLength(1)
+  })
+  it('falls back to phone when email mismatches (phone has precedence)', async () => {
+    const f = vi.fn().mockImplementation(async (url: string) =>
+      url.includes('phone=') ? json(hit) : json({}, 404),
+    )
+    const r = await fetchLmsEnrollments({ ...base, phone: '+917356543520', email: 'wrong@x.com', fetchImpl: f })
+    expect(r.enrollments).toHaveLength(1)
+    expect(f.mock.calls.every(([u]) => !String(u).includes('email='))).toBe(true)
+  })
+  it('rejects when neither identifier is present', async () => {
+    const f = vi.fn()
+    await expect(fetchLmsEnrollments({ ...base, fetchImpl: f })).rejects.toMatchObject({ code: 'invalid_phone' })
+    expect(f).not.toHaveBeenCalled()
+  })
+  it('normalizeEmail trims, lowercases and rejects junk', () => {
+    expect(normalizeEmail(' X@Y.io ')).toBe('x@y.io')
+    expect(normalizeEmail('nope')).toBeNull()
+    expect(normalizeEmail('')).toBeNull()
   })
 })
 

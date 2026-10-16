@@ -8,10 +8,16 @@ import { cn } from "@/lib/utils";
 import { useLmsEnrollments } from "@/hooks/use-lms-enrollments";
 import type { LmsEnrollment } from "@/lib/lms/types";
 
-export function LmsEnrollmentsSection({ phone }: { phone: string | null }) {
+export function LmsEnrollmentsSection({
+  phone,
+  email = null,
+}: {
+  phone: string | null;
+  email?: string | null;
+}) {
   const t = useTranslations("Inbox.sidebar.lms");
   const [open, setOpen] = useState(true);
-  const { data, error, loading, refresh } = useLmsEnrollments(phone, open);
+  const { data, error, loading, refresh } = useLmsEnrollments(phone, email, open);
 
   const errorKey =
     error === "misconfigured" ||

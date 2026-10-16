@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account'
 import { decrypt } from '@/lib/whatsapp/encryption'
-import { fetchLmsEnrollments, LmsError } from '@/lib/lms/enrollments'
+import { fetchLmsEnrollments, LmsError, normalizeEmail } from '@/lib/lms/enrollments'
 import type { LmsErrorCode } from '@/lib/lms/types'
 
 const STATUS: Record<LmsErrorCode, number> = {
@@ -18,7 +18,7 @@ function fail(code: LmsErrorCode, message: string) {
 }
 
 /**
- * GET /api/integrations/lms/enrollments?phone=...
+ * GET /api/integrations/lms/enrollments?phone=...&email=... (at least one required)
  *
  * Server-side proxy to the LMS. The API secret is decrypted here and
  * sent as `x-api-key`; it never reaches the browser nor the logs.
@@ -27,10 +27,13 @@ export async function GET(request: Request) {
   try {
     const { supabase, accountId } = await getCurrentAccount()
 
-    const raw = new URL(request.url).searchParams.get('phone') ?? ''
-    const phone = raw.replace(/[\s\-().]/g, '')
-    if (!/^\+?\d{5,20}$/.test(phone)) {
-      return fail('invalid_phone', 'A valid phone number is required')
+    const params = new URL(request.url).searchParams
+    const rawPhone = (params.get('phone') ?? '').replace(/[\s\-().]/g, '')
+    const phone = /^\+?\d{5,20}$/.test(rawPhone) ? rawPhone : null
+    const email = normalizeEmail(params.get('email') ?? '')
+    // Either identifier alone is enough; reject only when neither is usable.
+    if (!phone && !email) {
+      return fail('invalid_phone', 'A valid phone number or email is required')
     }
 
     const { data, error } = await supabase
@@ -59,12 +62,13 @@ export async function GET(request: Request) {
         baseUrl: data.base_url,
         apiKey,
         phone,
+        email,
       })
-      console.log(`[lms/enrollments] Phone ${phone}: returned ${result.enrollments.length} enrollments`)
+      console.log(`[lms/enrollments] Lookup: returned ${result.enrollments.length} enrollments`)
       return NextResponse.json(result)
     } catch (err) {
       if (err instanceof LmsError) {
-        console.warn(`[lms/enrollments] LmsError for ${phone}: ${err.code} - ${err.message}`)
+        console.warn(`[lms/enrollments] LmsError lookup: ${err.code} - ${err.message}`)
         return fail(err.code, err.message)
       }
       console.error('[lms/enrollments] unexpected error:', err)

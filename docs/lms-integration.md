@@ -18,6 +18,12 @@ sidebar (**LMS Enrollments**).
   `GET {LMS_URL}/api/v1/contacts/enrollments?phone=…` with the `x-api-key`
   header (8s timeout). Responses are normalized to
   `{ enrollments: [{ id, kind, title, status, enrolledAt }] }`.
+- **Single-identifier lookup:** `phone` and `email` are both optional, but at
+  least one is required (otherwise `invalid_phone`, HTTP 400). Precedence is
+  stable: every normalized phone candidate is tried first, then the
+  lowercased/trimmed email (`?email=…`); the first non-empty result wins, so a
+  missing or mismatching identifier never blocks the other. Lookups are always
+  scoped to the caller's account LMS config.
 - Proxy error codes: `misconfigured`, `unauthorized`, `unreachable`,
   `timeout`, `bad_response`, `invalid_phone`.
 - **Caching:** an in-memory per-tab cache keyed by phone with a 7-minute TTL

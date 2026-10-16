@@ -261,10 +261,10 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           {/* Divider */}
           <div className="my-4 border-t border-border" />
 
-          {/* LMS Enrollments (keyed by phone; BSUID-only contacts have none) */}
-          {contact.phone?.trim() && (
+          {/* LMS Enrollments (phone and/or email; contacts with neither have none) */}
+          {(contact.phone?.trim() || contact.email?.trim()) && (
             <>
-              <LmsEnrollmentsSection phone={contact.phone} />
+              <LmsEnrollmentsSection phone={contact.phone} email={contact.email} />
               <div className="my-4 border-t border-border" />
             </>
           )}
