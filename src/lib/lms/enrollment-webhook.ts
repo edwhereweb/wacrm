@@ -24,9 +24,6 @@ import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 
 export const BUTTON_APP_LABEL = 'Open App / Download';
 export const BUTTON_GROUP_LABEL = 'Join WhatsApp Group';
-export const BODY_TEXT =
-  'Hi {{1}}, congratulations! You have successfully enrolled in {{2}}.';
-
 export const DEFAULT_TEMPLATE_NAME = 'lms_enrollment_confirmation';
 export const DEFAULT_TEMPLATE_LANGUAGE = 'en_US';
 
@@ -224,13 +221,16 @@ export async function recordFailedConfirmation(
     console.error('[lms-enrollment] could not record failed message:', error);
     return;
   }
-  await db
+  const { error: convErr } = await db
     .from('conversations')
     .update({
       last_message_text: text,
       last_message_at: new Date().toISOString(),
     })
     .eq('id', conversationId);
+  if (convErr) {
+    console.error('[lms-enrollment] could not update conversation:', convErr);
+  }
 }
 
 /**
@@ -267,9 +267,14 @@ export async function dispatchEnrollmentConfirmation(
     }
     const buttonParams: Record<number, string> = {};
     const urls = [payload.appDownloadUrl, payload.groupUrl];
-    (tpl.row.buttons ?? []).slice(0, 2).forEach((btn, i) => {
-      if (btn.type === 'URL' && extractVariableIndices(btn.url).length > 0) {
-        buttonParams[i] = dynamicButtonParam(btn.url, urls[i]);
+    // URL buttons map to [app, group] in order, whatever other button
+    // types surround them.
+    let urlIdx = 0;
+    (tpl.row.buttons ?? []).forEach((btn, i) => {
+      if (btn.type !== 'URL') return;
+      const url = urls[urlIdx++];
+      if (url && extractVariableIndices(btn.url).length > 0) {
+        buttonParams[i] = dynamicButtonParam(btn.url, url);
       }
     });
     const result = await sendMessageToConversation(db, accountId, {
