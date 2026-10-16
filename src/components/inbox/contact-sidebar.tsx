@@ -137,7 +137,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   return (
     <div className="flex h-full w-70 flex-col border-l border-border bg-card">
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
@@ -294,7 +294,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 </Button>
               </div>
 
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 max-h-[300px] space-y-2 overflow-y-auto pr-1">
                 {notes.map((note) => (
                   <div
                     key={note.id}
