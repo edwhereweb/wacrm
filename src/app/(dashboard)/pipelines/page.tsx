@@ -24,7 +24,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GitBranch, Plus, ChevronDown, Settings } from "lucide-react";
+import { GitBranch, Plus, ChevronDown, Settings, Download, Loader2 } from "lucide-react";
+import {
+  buildPipelineCsv,
+  downloadCsv,
+  type DealsQueryClient,
+  fetchAllPipelineDeals,
+  pipelineExportFilename,
+} from "@/lib/pipelines/export";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
@@ -63,6 +70,7 @@ export default function PipelinesPage() {
   const [newPipelineName, setNewPipelineName] = useState("");
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Deal form state is lifted here so both the top-bar "Add Deal" and
   // the per-column "+" trigger the same Sheet.
@@ -295,6 +303,32 @@ export default function PipelinesPage() {
     toast.success(t("toastPipelineCreated"));
   }
 
+  const handleExport = useCallback(async () => {
+    const pipeline = pipelines.find((p) => p.id === selectedPipelineId);
+    if (!pipeline || exporting) return;
+    setExporting(true);
+    try {
+      const all = await fetchAllPipelineDeals(
+        supabase as unknown as DealsQueryClient,
+        pipeline.id,
+      );
+      if (all.length === 0) {
+        toast.info(t("toastExportEmpty"));
+        return;
+      }
+      downloadCsv(
+        buildPipelineCsv(all, stages),
+        pipelineExportFilename(pipeline.name),
+      );
+      toast.success(t("toastExportSuccess", { count: all.length }));
+    } catch (err) {
+      console.error("Failed to export pipeline:", err);
+      toast.error(t("toastExportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  }, [pipelines, selectedPipelineId, exporting, supabase, stages, t]);
+
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
 
   if (loading) {
@@ -364,6 +398,19 @@ export default function PipelinesPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="outline"
+            disabled={!selectedPipelineId || exporting}
+            onClick={handleExport}
+            className="border-border bg-card text-foreground hover:bg-muted"
+          >
+            {exporting ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-1 h-4 w-4" />
+            )}
+            {exporting ? t("exporting") : t("exportPipeline")}
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
