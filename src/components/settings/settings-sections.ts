@@ -1,6 +1,7 @@
 import {
   Coins,
   FileText,
+  GraduationCap,
   KeyRound,
   LayoutGrid,
   Palette,
@@ -33,6 +34,7 @@ export const SETTINGS_SECTIONS = [
   'deals',
   'members',
   'api',
+  'lms',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -59,6 +61,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
+  lms: { id: 'lms', label: 'LMS', icon: GraduationCap, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [

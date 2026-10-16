@@ -302,7 +302,22 @@
       "deals": "Deals",
       "noTags": "No tags",
       "noDeals": "No deals",
-      "addNotePlaceholder": "Add a note..."
+      "addNotePlaceholder": "Add a note...",
+      "lms": {
+        "title": "LMS Courses",
+        "courses": "Courses",
+        "webinars": "Webinars",
+        "refresh": "Refresh enrollments",
+        "retry": "Try again",
+        "empty": "No active enrollments",
+        "errors": {
+          "misconfigured": "LMS integration isn't configured. An admin can set it up in Settings → LMS.",
+          "unauthorized": "The LMS rejected the API key. Check it in Settings → LMS.",
+          "unreachable": "Couldn't reach the LMS.",
+          "timeout": "The LMS took too long to respond.",
+          "invalid_phone": "This contact has no valid phone number."
+        }
+      }
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
@@ -1681,7 +1696,8 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "lms": "LMS integration"
     },
     "groups": {
       "account": "Account",
@@ -1778,6 +1794,19 @@
         "location": "📍 Location",
         "template": "📋 Template"
       }
+    },
+    "lms": {
+      "title": "LMS integration",
+      "description": "Connect your LMS to show each contact's course and webinar enrollments in the inbox. The secret key is stored encrypted and only used server-side.",
+      "baseUrl": "LMS base URL",
+      "apiKey": "LMS API secret key",
+      "keyPlaceholder": "•••••••• (leave blank to keep current)",
+      "keyHint": "Sent to the LMS as the x-api-key header. Never exposed to the browser.",
+      "save": "Save",
+      "saved": "LMS settings saved",
+      "saveFailed": "Failed to save LMS settings",
+      "loadFailed": "Failed to load LMS settings",
+      "adminOnly": "Only admins can change these settings."
     },
     "apiKeys": {
       "title": "API keys",

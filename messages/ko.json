@@ -302,7 +302,22 @@
       "deals": "딜",
       "noTags": "태그 없음",
       "noDeals": "딜 없음",
-      "addNotePlaceholder": "메모 추가..."
+      "addNotePlaceholder": "메모 추가...",
+      "lms": {
+        "title": "LMS 수강 내역",
+        "courses": "강좌",
+        "webinars": "웨비나",
+        "refresh": "수강 내역 새로고침",
+        "retry": "다시 시도",
+        "empty": "활성 수강 내역 없음",
+        "errors": {
+          "misconfigured": "LMS 연동이 설정되지 않았습니다. 관리자가 설정 → LMS에서 설정할 수 있습니다.",
+          "unauthorized": "LMS가 API 키를 거부했습니다. 설정 → LMS에서 확인하세요.",
+          "unreachable": "LMS에 연결할 수 없습니다.",
+          "timeout": "LMS 응답이 너무 오래 걸립니다.",
+          "invalid_phone": "이 연락처에는 유효한 전화번호가 없습니다."
+        }
+      }
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -1681,7 +1696,8 @@
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
       "members": "팀원",
-      "api": "API 키"
+      "api": "API 키",
+      "lms": "LMS 연동"
     },
     "groups": {
       "account": "계정",
@@ -1778,6 +1794,19 @@
         "location": "📍 위치",
         "template": "📋 템플릿"
       }
+    },
+    "lms": {
+      "title": "LMS 연동",
+      "description": "LMS를 연결하여 받은편지함에 각 연락처의 강좌 및 웨비나 수강 내역을 표시합니다. 비밀 키는 암호화되어 저장되며 서버에서만 사용됩니다.",
+      "baseUrl": "LMS 기본 URL",
+      "apiKey": "LMS API 비밀 키",
+      "keyPlaceholder": "•••••••• (현재 값을 유지하려면 비워 두세요)",
+      "keyHint": "x-api-key 헤더로 LMS에 전송됩니다. 브라우저에는 노출되지 않습니다.",
+      "save": "저장",
+      "saved": "LMS 설정이 저장되었습니다",
+      "saveFailed": "LMS 설정을 저장하지 못했습니다",
+      "loadFailed": "LMS 설정을 불러오지 못했습니다",
+      "adminOnly": "관리자만 이 설정을 변경할 수 있습니다."
     },
     "apiKeys": {
       "title": "API 키",

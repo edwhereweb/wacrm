@@ -302,7 +302,22 @@
       "deals": "Negócios",
       "noTags": "Sem tags",
       "noDeals": "Sem negócios",
-      "addNotePlaceholder": "Adicionar uma nota..."
+      "addNotePlaceholder": "Adicionar uma nota...",
+      "lms": {
+        "title": "Matrículas LMS",
+        "courses": "Cursos",
+        "webinars": "Webinars",
+        "refresh": "Atualizar matrículas",
+        "retry": "Tentar novamente",
+        "empty": "Nenhuma matrícula ativa",
+        "errors": {
+          "misconfigured": "A integração LMS não está configurada. Um administrador pode configurá-la em Configurações → LMS.",
+          "unauthorized": "O LMS rejeitou a chave de API. Verifique em Configurações → LMS.",
+          "unreachable": "Não foi possível acessar o LMS.",
+          "timeout": "O LMS demorou demais para responder.",
+          "invalid_phone": "Este contato não tem um telefone válido."
+        }
+      }
     },
     "aiBanner": {
       "pausedTitle": "O assistente de IA está pausado aqui",
@@ -1665,7 +1680,8 @@
       "fields": "Campos e tags",
       "deals": "Negócios e moeda",
       "members": "Membros da equipe",
-      "api": "Chaves de API"
+      "api": "Chaves de API",
+      "lms": "Integração LMS"
     },
     "groups": {
       "account": "Conta",
@@ -1760,6 +1776,19 @@
         "location": "📍 Localização",
         "template": "📋 Modelo"
       }
+    },
+    "lms": {
+      "title": "Integração LMS",
+      "description": "Conecte seu LMS para mostrar as matrículas em cursos e webinars de cada contato na caixa de entrada. A chave secreta é armazenada criptografada e usada apenas no servidor.",
+      "baseUrl": "URL base do LMS",
+      "apiKey": "Chave secreta de API do LMS",
+      "keyPlaceholder": "•••••••• (deixe em branco para manter a atual)",
+      "keyHint": "Enviada ao LMS no cabeçalho x-api-key. Nunca exposta ao navegador.",
+      "save": "Salvar",
+      "saved": "Configurações do LMS salvas",
+      "saveFailed": "Falha ao salvar as configurações do LMS",
+      "loadFailed": "Falha ao carregar as configurações do LMS",
+      "adminOnly": "Somente administradores podem alterar estas configurações."
     },
     "apiKeys": {
       "title": "Chaves de API",

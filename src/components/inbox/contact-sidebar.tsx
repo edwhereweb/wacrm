@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
+import { LmsEnrollmentsSection } from "./lms-enrollments-section";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -259,6 +260,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
           {/* Divider */}
           <div className="my-4 border-t border-border" />
+
+          {/* LMS Enrollments (keyed by phone; BSUID-only contacts have none) */}
+          {contact.phone?.trim() && (
+            <>
+              <LmsEnrollmentsSection phone={contact.phone} />
+              <div className="my-4 border-t border-border" />
+            </>
+          )}
 
           {/* Notes */}
           <div>

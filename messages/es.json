@@ -302,7 +302,22 @@
       "deals": "Negocios",
       "noTags": "Sin etiquetas",
       "noDeals": "Sin negocios",
-      "addNotePlaceholder": "Agregar una nota..."
+      "addNotePlaceholder": "Agregar una nota...",
+      "lms": {
+        "title": "Inscripciones LMS",
+        "courses": "Cursos",
+        "webinars": "Webinars",
+        "refresh": "Actualizar inscripciones",
+        "retry": "Reintentar",
+        "empty": "Sin inscripciones activas",
+        "errors": {
+          "misconfigured": "La integración LMS no está configurada. Un administrador puede hacerlo en Ajustes → LMS.",
+          "unauthorized": "El LMS rechazó la clave de API. Revísala en Ajustes → LMS.",
+          "unreachable": "No se pudo conectar con el LMS.",
+          "timeout": "El LMS tardó demasiado en responder.",
+          "invalid_phone": "Este contacto no tiene un teléfono válido."
+        }
+      }
     },
     "aiBanner": {
       "pausedTitle": "El asistente de IA está en pausa aquí",
@@ -1665,7 +1680,8 @@
       "fields": "Campos y etiquetas",
       "deals": "Negocios y moneda",
       "members": "Miembros del equipo",
-      "api": "Claves de API"
+      "api": "Claves de API",
+      "lms": "Integración LMS"
     },
     "groups": {
       "account": "Cuenta",
@@ -1760,6 +1776,19 @@
         "location": "📍 Ubicación",
         "template": "📋 Plantilla"
       }
+    },
+    "lms": {
+      "title": "Integración LMS",
+      "description": "Conecta tu LMS para mostrar las inscripciones a cursos y webinars de cada contacto en la bandeja. La clave secreta se guarda cifrada y solo se usa en el servidor.",
+      "baseUrl": "URL base del LMS",
+      "apiKey": "Clave secreta de API del LMS",
+      "keyPlaceholder": "•••••••• (déjalo en blanco para mantener la actual)",
+      "keyHint": "Se envía al LMS en el encabezado x-api-key. Nunca se expone al navegador.",
+      "save": "Guardar",
+      "saved": "Ajustes de LMS guardados",
+      "saveFailed": "No se pudieron guardar los ajustes de LMS",
+      "loadFailed": "No se pudieron cargar los ajustes de LMS",
+      "adminOnly": "Solo los administradores pueden cambiar estos ajustes."
     },
     "apiKeys": {
       "title": "Claves de API",
