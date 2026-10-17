@@ -22,16 +22,20 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "Edwhere Learning",
+    template: "%s — Edwhere Learning",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description: "Edwhere Learning CRM for WhatsApp.",
   robots: {
     index: false,
     follow: false,
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    icon: [
+      { url: "/logo.png" },
+      { url: "/icon.png" },
+    ],
+    apple: [{ url: "/logo.png" }],
   },
   formatDetection: {
     email: false,
