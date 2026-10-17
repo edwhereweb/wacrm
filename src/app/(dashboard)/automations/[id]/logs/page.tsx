@@ -40,6 +40,13 @@ export default function AutomationLogsPage({
   useEffect(() => {
     async function load() {
       try {
+        const res = await fetch(`/api/automations/${id}/logs`)
+        if (res.ok) {
+          const body = await res.json()
+          setAutomation(body.automation as Automation | null)
+          setLogs((body.logs ?? []) as AutomationLog[])
+          return
+        }
         const supabase = createClient()
         const [autRes, logRes] = await Promise.all([
           supabase

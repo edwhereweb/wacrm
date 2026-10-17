@@ -69,6 +69,12 @@ export default function AutomationsPage() {
 
   async function load() {
     try {
+      const res = await fetch("/api/automations")
+      if (res.ok) {
+        const body = await res.json()
+        setAutomations((body.automations ?? []) as Automation[])
+        return
+      }
       const supabase = createClient()
       const { data, error: fetchErr } = await supabase
         .from("automations")
