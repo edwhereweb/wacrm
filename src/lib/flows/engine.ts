@@ -914,6 +914,69 @@ async function advanceCurrentNodeKey(
   return Array.isArray(data) && data.length > 0;
 }
 
+/**
+ * A run parked on a non-prompt node for longer than this is assumed to
+ * have lost its webhook mid-walk (the route's maxDuration is 60s).
+ */
+const STALE_ADVANCE_MS = 90_000;
+
+/**
+ * Atomically take ownership of a reply before acting on it.
+ *
+ * `current_node_key` only used to move when the walk reached the NEXT
+ * prompt — so while one tap was still sending media (seconds), a second
+ * tap on the same buttons matched again and ran a parallel branch:
+ * duplicated / interleaved messages and the wrong next step. Moving the
+ * pointer off the prompt here, guarded by compare-and-swap on both the
+ * pointer and `last_advanced_at`, means exactly one webhook wins; the
+ * loser sees a busy run and is ignored.
+ *
+ * On success the in-memory `run` is updated so the advance loop's own
+ * optimistic UPDATE (advanceCurrentNodeKey) expects the new pointer.
+ */
+async function claimReply(
+  db: AdminClient,
+  run: FlowRunRow,
+  newKey: string,
+  extra: Record<string, unknown> = {},
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  let q = db
+    .from("flow_runs")
+    .update({ current_node_key: newKey, last_advanced_at: now, ...extra })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("last_advanced_at", run.last_advanced_at);
+  q =
+    run.current_node_key === null
+      ? q.is("current_node_key", null)
+      : q.eq("current_node_key", run.current_node_key);
+  const { data, error } = await q.select("id");
+  if (error) {
+    console.error("[flows] claimReply error:", error.message);
+    return false;
+  }
+  if (!Array.isArray(data) || data.length === 0) return false;
+  run.current_node_key = newKey;
+  run.last_advanced_at = now;
+  return true;
+}
+
+async function lostClaim(
+  db: AdminClient,
+  run: FlowRunRow,
+  nodeKey: string,
+): Promise<DispatchInboundResult> {
+  await logEvent(db, run.id, "node_entered", nodeKey, {
+    ignored_reply: "concurrent_reply_lost_claim",
+  });
+  return {
+    consumed: true,
+    flow_run_id: run.id,
+    outcome: "duplicate_inbound_ignored",
+  };
+}
+
 // ============================================================
 // Public entry point — the webhook calls this on every inbound.
 // ============================================================
@@ -1010,6 +1073,43 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
   }
 
+  // The run is parked on a non-prompt node only while another webhook
+  // is still walking it (sending media, tagging, …) — see claimReply.
+  // A reply landing in that window is a double tap or a tap on an
+  // older prompt; acting on it would run a second branch in parallel.
+  if (!isSuspending(currentNode.node_type)) {
+    const idleMs = Date.now() - new Date(run.last_advanced_at).getTime();
+    if (!(idleMs > STALE_ADVANCE_MS)) {
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+        ignored_reply: "run_busy_advancing",
+      });
+      return {
+        consumed: true,
+        flow_run_id: run.id,
+        outcome: "duplicate_inbound_ignored",
+      };
+    }
+    // The advancing webhook died mid-walk (function timeout / crash).
+    // Resume from where it stopped instead of leaving the customer stuck.
+    if (!(await claimReply(db, run, currentNode.node_key))) {
+      return {
+        consumed: true,
+        flow_run_id: run.id,
+        outcome: "duplicate_inbound_ignored",
+      };
+    }
+    await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+      resumed_stale_run: true,
+    });
+    const outcome = await advanceFromNodeKey(
+      db,
+      run,
+      currentNode.node_key,
+      nodes,
+    );
+    return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+  }
+
   // Two ways a reply can advance:
   //   1. Interactive button/list tap on a send_buttons/send_list node.
   //   2. Text reply on a collect_input node — capture into vars.
@@ -1022,6 +1122,9 @@ async function handleReplyForActiveRun(
       currentNode.node_type === "send_list")
   ) {
     matched = matchReplyId(currentNode, message.reply_id);
+    if (matched && !(await claimReply(db, run, matched))) {
+      return lostClaim(db, run, currentNode.node_key);
+    }
   } else if (
     message.kind === "text" &&
     currentNode.node_type === "collect_input"
@@ -1029,27 +1132,27 @@ async function handleReplyForActiveRun(
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
     const captured = message.text.trim();
     if (captured.length > 0 && cfg.var_key) {
-      // Persist captured value + reset reprompt count atomically.
+      // Persist captured value + reset reprompt count in the same
+      // UPDATE that claims the reply, so a lost race writes nothing.
       const newVars = { ...run.vars, [cfg.var_key]: captured };
-      const { error: capErr } = await db
-        .from("flow_runs")
-        .update({
+      if (
+        !(await claimReply(db, run, cfg.next_node_key, {
           vars: newVars,
           reprompt_count: 0,
-        })
-        .eq("id", run.id);
-      if (!capErr) {
-        // Mirror the UPDATE in-memory so downstream interpolation in
-        // the advance loop sees the captured var without us having to
-        // re-SELECT the whole row.
-        run.vars = newVars;
-        run.reprompt_count = 0;
-        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-          captured_key: cfg.var_key,
-          captured_length: captured.length,
-        });
-        matched = cfg.next_node_key;
+        }))
+      ) {
+        return lostClaim(db, run, currentNode.node_key);
       }
+      // Mirror the UPDATE in-memory so downstream interpolation in
+      // the advance loop sees the captured var without us having to
+      // re-SELECT the whole row.
+      run.vars = newVars;
+      run.reprompt_count = 0;
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+        captured_key: cfg.var_key,
+        captured_length: captured.length,
+      });
+      matched = cfg.next_node_key;
     }
   }
 

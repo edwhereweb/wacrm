@@ -19,6 +19,10 @@ const h = vi.hoisted(() => ({
     /** Set by the flow_runs INSERT; what its .maybeSingle() returns. */
     insertedRun: null as Record<string, unknown> | null,
     rpcCalls: [] as string[],
+    /** UPDATEs made during a dispatch, in order. */
+    updates: [] as { table: string; row: Record<string, unknown> }[],
+    /** Simulate another webhook winning the claim on flow_runs. */
+    claimFails: false,
   },
 }));
 
@@ -31,6 +35,7 @@ vi.mock("./admin-client", () => {
   }
 
   function builder(table: string) {
+    let isUpdate = false;
     const b: Record<string, unknown> = {
       select: () => b,
       eq: () => b,
@@ -38,7 +43,12 @@ vi.mock("./admin-client", () => {
       filter: () => b,
       order: () => b,
       limit: () => b,
-      update: () => b,
+      is: () => b,
+      update: (row: Record<string, unknown>) => {
+        isUpdate = true;
+        h.state.updates.push({ table, row });
+        return b;
+      },
       insert: (row: Record<string, unknown>) => {
         h.state.inserted.push({ table, row });
         if (table === "flow_runs") {
@@ -65,7 +75,15 @@ vi.mock("./admin-client", () => {
           error: null;
           count: number;
         }) => unknown,
-      ) => resolve({ data: rows(table), error: null, count: 0 }),
+      ) =>
+        resolve({
+          data:
+            isUpdate && table === "flow_runs" && h.state.claimFails
+              ? []
+              : rows(table),
+          error: null,
+          count: 0,
+        }),
     };
     return b;
   }
@@ -157,6 +175,8 @@ beforeEach(() => {
   h.state.inserted = [];
   h.state.insertedRun = null;
   h.state.rpcCalls = [];
+  h.state.updates = [];
+  h.state.claimFails = false;
   engineSendText.mockClear();
 });
 
@@ -315,5 +335,109 @@ describe("dispatchInboundToFlows — entry triggers (#490)", () => {
     expect(result.consumed).toBe(true);
     expect(result.flow_run_id).toBe("run-1");
     expect(startedRuns()).toHaveLength(1);
+  });
+});
+
+// ============================================================
+// Replies racing an in-flight advance. Production showed ~8% of runs
+// accepting two taps on the same prompt: the second tap arrived while
+// the first was still sending media, matched the same buttons, and ran
+// a parallel branch (duplicate / interleaved messages, wrong step).
+// ============================================================
+
+const MENU_NODES = [
+  {
+    id: "m1",
+    flow_id: "flow-1",
+    node_key: "menu",
+    node_type: "send_buttons",
+    config: {
+      text: "Pick one",
+      buttons: [{ title: "Brochure", reply_id: "b1", next_node_key: "greet" }],
+    },
+  },
+  ...NODES.filter((n) => n.node_key !== "start"),
+];
+
+function activeRunAt(current_node_key: string, last_advanced_at: string) {
+  return {
+    id: "run-9",
+    flow_id: "flow-1",
+    account_id: "acct-1",
+    user_id: "u-1",
+    contact_id: "ct-1",
+    conversation_id: "cv-1",
+    status: "active",
+    current_node_key,
+    last_prompt_message_id: null,
+    vars: {},
+    reprompt_count: 0,
+    started_at: "2026-01-01T00:00:00Z",
+    last_advanced_at,
+    ended_at: null,
+    end_reason: null,
+  };
+}
+
+const TAP: ParsedInbound = {
+  kind: "interactive_reply",
+  reply_id: "b1",
+  reply_title: "Brochure",
+  meta_message_id: "m2",
+};
+
+describe("dispatchInboundToFlows — concurrent replies", () => {
+  beforeEach(() => {
+    h.state.nodes = MENU_NODES;
+  });
+
+  it("claims the reply by moving the pointer off the prompt before sending", async () => {
+    h.state.activeRuns = [activeRunAt("menu", new Date().toISOString())];
+
+    const result = await dispatch(TAP);
+
+    expect(result.consumed).toBe(true);
+    expect(engineSendText).toHaveBeenCalledTimes(1);
+    const claim = h.state.updates.find(
+      (u) => u.table === "flow_runs" && "current_node_key" in u.row,
+    );
+    expect(claim?.row.current_node_key).toBe("greet");
+  });
+
+  it("ignores a tap that loses the claim to a concurrent webhook", async () => {
+    h.state.activeRuns = [activeRunAt("menu", new Date().toISOString())];
+    h.state.claimFails = true;
+
+    const result = await dispatch(TAP);
+
+    expect(result).toMatchObject({
+      consumed: true,
+      outcome: "duplicate_inbound_ignored",
+    });
+    expect(engineSendText).not.toHaveBeenCalled();
+  });
+
+  it("ignores a tap while the run is still advancing", async () => {
+    // Pointer already claimed onto a non-prompt node, moments ago.
+    h.state.activeRuns = [activeRunAt("greet", new Date().toISOString())];
+
+    const result = await dispatch(TAP);
+
+    expect(result).toMatchObject({
+      consumed: true,
+      outcome: "duplicate_inbound_ignored",
+    });
+    expect(engineSendText).not.toHaveBeenCalled();
+  });
+
+  it("resumes a run whose advancing webhook died mid-walk", async () => {
+    const old = new Date(Date.now() - 10 * 60_000).toISOString();
+    h.state.activeRuns = [activeRunAt("greet", old)];
+
+    const result = await dispatch(TAP);
+
+    expect(result.consumed).toBe(true);
+    expect(result.outcome).toBe("completed");
+    expect(engineSendText).toHaveBeenCalledTimes(1);
   });
 });
