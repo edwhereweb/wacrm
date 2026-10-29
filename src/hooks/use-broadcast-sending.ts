@@ -7,25 +7,25 @@ import {
   BATCH_SEND_ATTEMPTS,
   batchRetryDelayMs,
 } from '@/lib/broadcast-retry';
+import {
+  resolveAudienceContacts,
+  type AudienceConfig,
+} from '@/lib/broadcast-audience';
 import { normalizeKey } from '@/lib/contacts/dedupe';
-import { Contact, MessageTemplate, TemplateButton } from '@/types';
+import {
+  acquireWizardDeliveryLease,
+  renewWizardDeliveryLease,
+  type DeliveryLeaseResult,
+} from '@/lib/whatsapp/broadcast-delivery-lease';
+import { fetchAllInChunks, fetchAllPages } from '@/lib/supabase/paged-query';
+import { BroadcastRecipient, Contact, MessageTemplate, TemplateButton } from '@/types';
+import { getT } from '@/lib/i18n/translate';
 
-export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
-
-export interface CustomFieldFilter {
-  fieldId: string;
-  operator: CustomFieldOperator;
-  value: string;
-}
-
-export interface AudienceConfig {
-  type: 'all' | 'tags' | 'custom_field' | 'csv';
-  tagIds?: string[];
-  customField?: CustomFieldFilter;
-  csvContacts?: { phone: string; name?: string }[];
-  /** Contacts carrying any of these tags are subtracted from the result. */
-  excludeTagIds?: string[];
-}
+export type {
+  AudienceConfig,
+  CustomFieldFilter,
+  CustomFieldOperator,
+} from '@/lib/broadcast-audience';
 
 /**
  * Variable mapping — each template placeholder (by key, usually "1",
@@ -54,8 +54,15 @@ interface BroadcastPayload {
   headerMediaUrl?: string;
 }
 
+export type BroadcastSendInterruption = 'lease_lost' | 'lease_error';
+
+export interface BroadcastSendOutcome {
+  broadcastId: string;
+  interruption: BroadcastSendInterruption | null;
+}
+
 interface UseBroadcastSendingReturn {
-  createAndSendBroadcast: (payload: BroadcastPayload) => Promise<string>;
+  createAndSendBroadcast: (payload: BroadcastPayload) => Promise<BroadcastSendOutcome>;
   isProcessing: boolean;
   progress: number;
 }
@@ -78,6 +85,22 @@ const INSERT_BATCH_SIZE = 200;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class DeliveryLeaseInterrupted extends Error {
+  constructor(readonly interruption: BroadcastSendInterruption) {
+    super(interruption);
+  }
+}
+
+function heldLeaseOrThrow(result: DeliveryLeaseResult): string {
+  if (result.status === 'held') return result.lease;
+  if (result.status === 'error') {
+    console.error('[broadcast] delivery lease renewal failed:', result.message);
+  }
+  throw new DeliveryLeaseInterrupted(
+    result.status === 'lost' ? 'lease_lost' : 'lease_error',
+  );
 }
 
 interface BroadcastApiResult {
@@ -177,83 +200,37 @@ async function fetchCustomValueIndex(
   contactIds: string[],
 ): Promise<CustomValueIndex> {
   const index: CustomValueIndex = new Map();
-  if (contactIds.length === 0) return index;
-
-  // Supabase PostgREST caps the .in(...) IN-clause roughly at 1000
-  // values. Page through to stay safe.
-  const PAGE = 500;
-  for (let i = 0; i < contactIds.length; i += PAGE) {
-    const slice = contactIds.slice(i, i + PAGE);
-    const { data } = await supabase
+  const rows = await fetchAllInChunks<
+    { contact_id: string; custom_field_id: string; value: string | null },
+    string
+  >(contactIds, (slice, from, to) =>
+    supabase
       .from('contact_custom_values')
       .select('contact_id, custom_field_id, value')
-      .in('contact_id', slice);
+      .in('contact_id', slice)
+      .order('id')
+      .range(from, to),
+  );
 
-    for (const row of data ?? []) {
-      const bucket = index.get(row.contact_id) ?? new Map<string, string>();
-      bucket.set(row.custom_field_id, row.value ?? '');
-      index.set(row.contact_id, bucket);
-    }
+  for (const row of rows) {
+    const bucket = index.get(row.contact_id) ?? new Map<string, string>();
+    bucket.set(row.custom_field_id, row.value ?? '');
+    index.set(row.contact_id, bucket);
   }
   return index;
 }
 
 export function useBroadcastSending(): UseBroadcastSendingReturn {
+  const t = getT('Broadcasts.sending');
   const { accountId } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
   async function resolveAudience(audience: AudienceConfig): Promise<Contact[]> {
     const supabase = createClient();
-
-    let contacts: Contact[] = [];
-
-    if (audience.type === 'all') {
-      const { data, error } = await supabase.from('contacts').select('*');
-      if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
-      contacts = data ?? [];
-    } else if (
-      audience.type === 'tags' &&
-      audience.tagIds &&
-      audience.tagIds.length > 0
-    ) {
-      const { data: contactTags, error: tagError } = await supabase
-        .from('contact_tags')
-        .select('contact_id')
-        .in('tag_id', audience.tagIds);
-
-      if (tagError)
-        throw new Error(`Failed to fetch contact tags: ${tagError.message}`);
-
-      if (contactTags && contactTags.length > 0) {
-        const uniqueContactIds = [
-          ...new Set(contactTags.map((ct) => ct.contact_id)),
-        ];
-        const { data, error } = await supabase
-          .from('contacts')
-          .select('*')
-          .in('id', uniqueContactIds);
-        if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
-        contacts = data ?? [];
-      }
-    } else if (audience.type === 'custom_field' && audience.customField) {
-      contacts = await resolveCustomFieldAudience(supabase, audience.customField);
-    } else if (audience.type === 'csv' && audience.csvContacts) {
-      contacts = await upsertCsvContacts(supabase, audience.csvContacts);
-    }
-
-    // Apply exclude tags (works across all contact-derived audience
-    // types). CSV contacts are synthetic so exclusion doesn't apply.
-    if (audience.excludeTagIds && audience.excludeTagIds.length > 0) {
-      const { data: excludeRows } = await supabase
-        .from('contact_tags')
-        .select('contact_id')
-        .in('tag_id', audience.excludeTagIds);
-      const excludedIds = new Set((excludeRows ?? []).map((r) => r.contact_id));
-      contacts = contacts.filter((c) => !excludedIds.has(c.id));
-    }
-
-    return contacts;
+    return resolveAudienceContacts(supabase, audience, (rows) =>
+      upsertCsvContacts(supabase, rows),
+    );
   }
 
   /**
@@ -281,10 +258,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) {
-      throw new Error('You are not signed in.');
+      throw new Error(t('notSignedIn'));
     }
     if (!accountId) {
-      throw new Error('Your profile is not linked to an account.');
+      throw new Error(t('notLinkedToAccount'));
     }
 
     // De-duplicate within the CSV on the NORMALIZED number — the same
@@ -303,17 +280,26 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     // Scoping to `user_id` missed rows a teammate created on a shared
     // account, so those numbers looked new and their inserts collided
     // with the account-wide unique index.
-    const { data: existing, error: lookupErr } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('account_id', accountId)
-      .in('phone_normalized', keys);
-    if (lookupErr) {
-      throw new Error(`Failed to look up CSV contacts: ${lookupErr.message}`);
+    let existing: Contact[];
+    try {
+      existing = await fetchAllInChunks<Contact, string>(
+        keys,
+        (slice, from, to) =>
+          supabase
+            .from('contacts')
+            .select('*')
+            .eq('account_id', accountId)
+            .in('phone_normalized', slice)
+            .order('id')
+            .range(from, to),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(t('lookupCsvContactsFailed', { error: message }));
     }
 
     const byKey = new Map<string, Contact>();
-    for (const c of (existing ?? []) as Contact[]) {
+    for (const c of existing) {
       const key = normalizeKey(c.phone ?? '');
       if (key) byKey.set(key, c);
     }
@@ -338,7 +324,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         .insert(chunk)
         .select();
       if (insertErr) {
-        throw new Error(`Failed to create CSV contacts: ${insertErr.message}`);
+        throw new Error(t('createCsvContactsFailed', { error: insertErr.message }));
       }
       for (const c of (inserted ?? []) as Contact[]) {
         const key = normalizeKey(c.phone ?? '');
@@ -352,40 +338,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       .filter((c): c is Contact => Boolean(c));
   }
 
-  async function resolveCustomFieldAudience(
-    supabase: ReturnType<typeof createClient>,
-    filter: CustomFieldFilter,
-  ): Promise<Contact[]> {
-    const { fieldId, operator, value } = filter;
-
-    // Build the WHERE clause for the operator. PostgREST supports
-    // eq/neq/ilike via the query builder — use ilike with wildcards
-    // for "contains" so the match is case-insensitive.
-    let query = supabase
-      .from('contact_custom_values')
-      .select('contact_id')
-      .eq('custom_field_id', fieldId);
-
-    if (operator === 'is') query = query.eq('value', value);
-    else if (operator === 'is_not') query = query.neq('value', value);
-    else if (operator === 'contains') query = query.ilike('value', `%${value}%`);
-
-    const { data: matches, error: matchErr } = await query;
-    if (matchErr)
-      throw new Error(`Custom-field filter failed: ${matchErr.message}`);
-
-    const contactIds = [...new Set((matches ?? []).map((m) => m.contact_id))];
-    if (contactIds.length === 0) return [];
-
-    const { data, error } = await supabase
-      .from('contacts')
-      .select('*')
-      .in('id', contactIds);
-    if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
-    return data ?? [];
-  }
-
-  async function createAndSendBroadcast(payload: BroadcastPayload): Promise<string> {
+  async function createAndSendBroadcast(payload: BroadcastPayload): Promise<BroadcastSendOutcome> {
     setIsProcessing(true);
     setProgress(0);
 
@@ -402,10 +355,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) {
-        throw new Error('You are not signed in.');
+        throw new Error(t('notSignedIn'));
       }
       if (!accountId) {
-        throw new Error('Your profile is not linked to an account.');
+        throw new Error(t('notLinkedToAccount'));
       }
 
       // ── Step 1: Resolve audience contacts ─────────────────────────
@@ -413,7 +366,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       const contacts = await resolveAudience(payload.audience);
 
       if (contacts.length === 0) {
-        throw new Error('No contacts found for this audience.');
+        throw new Error(t('noContactsForAudience'));
       }
 
       // ── Step 2: Create broadcast row ──────────────────────────────
@@ -425,6 +378,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           account_id: accountId,
           name: payload.name,
           template_name: payload.template.name,
+          template_language: payload.template.language ?? 'en_US',
           template_variables: {
             body: payload.variables,
             ...(payload.buttonVariables ? { buttons: payload.buttonVariables } : {}),
@@ -448,7 +402,9 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       if (broadcastError || !broadcast) {
         throw new Error(
-          `Failed to create broadcast: ${broadcastError?.message ?? 'unknown error'}`,
+          t('createBroadcastFailed', {
+            error: broadcastError?.message ?? t('unknownErrorLower'),
+          }),
         );
       }
 
@@ -516,23 +472,33 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             .update({
               status: 'failed',
               failed_count: contacts.length,
+              delivery_lease_until: null,
             })
             .eq('id', broadcast.id);
           throw new Error(
-            `Failed to insert recipient batch ${i / INSERT_BATCH_SIZE + 1}: ${recipientError.message}`,
+            t('insertRecipientBatchFailed', {
+              batch: i / INSERT_BATCH_SIZE + 1,
+              error: recipientError.message,
+            }),
           );
         }
       }
 
       // ── Step 4: Fetch recipients back (joined contact) ────────────
       setProgress(30);
-      const { data: recipients, error: recipientsFetchError } = await supabase
-        .from('broadcast_recipients')
-        .select('*, contact:contacts(*)')
-        .eq('broadcast_id', broadcast.id);
-
-      if (recipientsFetchError || !recipients) {
-        throw new Error('Failed to fetch broadcast recipients');
+      let recipients: BroadcastRecipient[];
+      try {
+        recipients = await fetchAllPages<BroadcastRecipient>(
+          (from, to) =>
+            supabase
+              .from('broadcast_recipients')
+              .select('*, contact:contacts(*)')
+              .eq('broadcast_id', broadcast.id)
+              .order('id')
+              .range(from, to),
+        );
+      } catch {
+        throw new Error(t('fetchRecipientsFailed'));
       }
 
       let failedCount = 0;
@@ -550,6 +516,16 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       const headerMediaUrl = payload.headerMediaUrl?.trim();
       const messageParams =
         isMediaHeader && headerMediaUrl ? { headerMediaUrl } : undefined;
+
+      let heldLease: string | null = null;
+      const keepDeliveryLease = async () => {
+        heldLease = heldLeaseOrThrow(
+          heldLease === null
+            ? await acquireWizardDeliveryLease(supabase, broadcast.id)
+            : await renewWizardDeliveryLease(supabase, broadcast.id, heldLease),
+        );
+      };
+      let interruption: BroadcastSendInterruption | null = null;
 
       for (let i = 0; i < recipients.length; i += SEND_BATCH_SIZE) {
         const batch = recipients.slice(i, i + SEND_BATCH_SIZE);
@@ -610,6 +586,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         if (apiRecipients.length === 0) continue;
 
         try {
+          await keepDeliveryLease();
+        } catch (err) {
+          if (!(err instanceof DeliveryLeaseInterrupted)) throw err;
+          interruption = err.interruption;
+          break;
+        }
+
+        try {
           // Send the batch, waiting out a 429 rather than writing the
           // whole batch off as failed. Only 429 is replayed — see
           // batchRetryDelayMs for why nothing else can be.
@@ -633,9 +617,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 ? batchRetryDelayMs(res.status, res.headers.get('Retry-After'))
                 : null;
             if (retryIn === null) {
-              throw new Error(data.error || 'Broadcast API request failed');
+              throw new Error(data.error || t('apiRequestFailed'));
             }
             await sleep(retryIn);
+            await keepDeliveryLease();
           }
 
           const resultsByPhone = new Map<string, BroadcastApiResult>();
@@ -653,7 +638,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 .from('broadcast_recipients')
                 .update({
                   status: 'failed',
-                  error_message: 'No phone number on contact',
+                  error_message: t('noPhoneOnContact'),
                 })
                 .eq('id', recipient.id);
               continue;
@@ -675,19 +660,23 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 .from('broadcast_recipients')
                 .update({
                   status: 'failed',
-                  error_message: result.error ?? 'Unknown error',
+                  error_message: result.error ?? t('unknownError'),
                 })
                 .eq('id', recipient.id);
             }
           }
         } catch (err) {
+          if (err instanceof DeliveryLeaseInterrupted) {
+            interruption = err.interruption;
+            break;
+          }
           for (const recipient of batch) {
             failedCount++;
             await supabase
               .from('broadcast_recipients')
               .update({
                 status: 'failed',
-                error_message: err instanceof Error ? err.message : 'Unknown error',
+                error_message: err instanceof Error ? err.message : t('unknownError'),
               })
               .eq('id', recipient.id);
           }
@@ -706,14 +695,19 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       // Aggregate counts are maintained by the DB trigger (migration
       // 003); we only flip the final status here.
       setProgress(95);
-      const finalStatus = failedCount === totalRecipients ? 'failed' : 'sent';
-      await supabase
-        .from('broadcasts')
-        .update({ status: finalStatus })
-        .eq('id', broadcast.id);
+      if (!interruption) {
+        const finalStatus = failedCount === totalRecipients ? 'failed' : 'sent';
+        const finalize = supabase
+          .from('broadcasts')
+          .update({ status: finalStatus, delivery_lease_until: null })
+          .eq('id', broadcast.id);
+        await (heldLease === null
+          ? finalize.is('delivery_lease_until', null)
+          : finalize.eq('delivery_lease_until', heldLease));
+      }
 
       setProgress(100);
-      return broadcast.id;
+      return { broadcastId: broadcast.id, interruption };
     } finally {
       setIsProcessing(false);
     }

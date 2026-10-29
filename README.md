@@ -165,6 +165,9 @@ Key pages:
   `LMS_WEBHOOK_SECRET` and template settings
 - [Several WABAs on one deployment](./docs/multi-waba.md) — one Meta
   App or several; how `META_APP_SECRET` takes a comma-separated list
+- [Auth emails](./docs/auth-emails.md) — what Supabase must allow so
+  confirmation and password-reset links come back to *your* domain
+  instead of `localhost:3000`, and how `/auth/callback` handles them
 
 ## Stack
 

@@ -372,6 +372,7 @@ function activeRunAt(current_node_key: string, last_advanced_at: string) {
     last_prompt_message_id: null,
     vars: {},
     reprompt_count: 0,
+    transition_seq: 0,
     started_at: "2026-01-01T00:00:00Z",
     last_advanced_at,
     ended_at: null,
@@ -389,6 +390,9 @@ const TAP: ParsedInbound = {
 describe("dispatchInboundToFlows — concurrent replies", () => {
   beforeEach(() => {
     h.state.nodes = MENU_NODES;
+    // The engine loads the run's flow before handling a reply and
+    // cancels the run if the flow is missing or inactive.
+    h.state.flows = [KEYWORD_FLOW];
   });
 
   it("claims the reply by moving the pointer off the prompt before sending", async () => {
