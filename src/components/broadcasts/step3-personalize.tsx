@@ -26,6 +26,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { extractTemplateVariables } from '@/lib/whatsapp/template-validators';
 
 export type VariableType = 'static' | 'field' | 'custom_field';
 
@@ -156,11 +157,11 @@ export function Step3Personalize({
     };
   }, []);
 
-  const placeholders = useMemo(() => {
-    const matches = template.body_text.match(/\{\{(\d+)\}\}/g);
-    if (!matches) return [];
-    return [...new Set(matches)].sort();
-  }, [template.body_text]);
+  // Positional {{1}} or named {{customer_name}} placeholders.
+  const placeholders = useMemo(
+    () => extractTemplateVariables(template.body_text).map((k) => `{{${k}}}`),
+    [template.body_text],
+  );
 
   // Identify any template buttons that require or accept dynamic parameters
   // (e.g. dynamic URL button with {{1}} or COPY_CODE button).
@@ -311,10 +312,15 @@ export function Step3Personalize({
 
   /**
    * Substitute placeholders using the first real contact where
-   * possible. Placeholders keyed by "{{N}}" map to variable key "N".
+   * possible. Placeholders keyed by "{{N}}" or "{{name}}" map to
+   * variable key "N" / "name".
    */
   const previewText = useMemo(() => {
-    const contact = firstContact ?? SAMPLE_CONTACT;
+    const contact = firstContact ?? {
+      ...SAMPLE_CONTACT,
+      name: t('personalize.sampleName'),
+      company: t('personalize.sampleCompany'),
+    };
     const customValues = firstContact
       ? firstContactCustomValues
       : new Map<string, string>();
@@ -349,6 +355,7 @@ export function Step3Personalize({
     placeholders,
     firstContact,
     firstContactCustomValues,
+    t,
   ]);
 
   const previewLabel = firstContact

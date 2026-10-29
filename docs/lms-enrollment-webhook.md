@@ -14,7 +14,7 @@ enrollment confirmation.
 | `LMS_ENROLLMENT_APP_URL` | no | Static app download URL used when the payload omits one. |
 | `LMS_REPLAY_SECRET` | for replay | Secret for the replay endpoint (`X-Replay-Secret` or Bearer). Unset → replay returns `503`. |
 
-Run migration `045_lms_enrollment_events.sql` (audit table). If it is not
+Run migration `063_lms_enrollment_events.sql` (audit table). If it is not
 applied, the webhook still delivers (audit/idempotency are skipped and
 `audit_insert_failed` is logged).
 

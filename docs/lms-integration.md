@@ -5,7 +5,7 @@ sidebar (**LMS Enrollments**).
 
 ## Admin setup
 
-1. Apply `supabase/migrations/044_lms_config.sql` (creates `lms_configs`).
+1. Apply `supabase/migrations/062_lms_config.sql` (creates `lms_configs`).
 2. In **Settings → LMS integration** (admin+), enter the **LMS base URL**
    (e.g. `https://lms.example.com`) and the **LMS API secret key**, then save.
    The key is encrypted at rest (AES-256-GCM, `ENCRYPTION_KEY`) and is never
