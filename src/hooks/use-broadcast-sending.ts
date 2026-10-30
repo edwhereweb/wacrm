@@ -383,6 +383,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           account_id: accountId,
           name: payload.name,
           template_name: payload.template.name,
+          template_language: payload.template.language ?? 'en_US',
           template_variables: {
             body: payload.variables,
             ...(payload.buttonVariables ? { buttons: payload.buttonVariables } : {}),

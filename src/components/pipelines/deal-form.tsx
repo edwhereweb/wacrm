@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
@@ -96,7 +95,13 @@ export function DealForm({
   const [openingConversation, setOpeningConversation] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
-  const selectedContact = contacts.find((c) => c.id === contactId) || null;
+  // The picker only loads the first CONTACT_PICKER_LIMIT contacts, so the
+  // deal's own contact is often not in `contacts`. Fall back to the one
+  // the deal row carries (or the one just picked) so the contact panel —
+  // Link to Conversation, phone, tags, LMS — still shows.
+  const selectedContact =
+    contacts.find((c) => c.id === contactId) ??
+    (contactId && pickedContact?.id === contactId ? pickedContact : null);
 
   const handleCopyPhone = async (phoneToCopy: string) => {
     if (!phoneToCopy) return;
