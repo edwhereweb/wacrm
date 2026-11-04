@@ -799,7 +799,13 @@
         "proposalSent": "Proposta enviada",
         "negotiation": "Negociação",
         "won": "Ganho"
-      }
+      },
+      "searchPlaceholder": "Buscar nome, telefone ou palavra-chave…",
+      "clearSearch": "Limpar busca",
+      "searchResultCount": "{shown} de {total} negócios",
+      "searchKeywordHint": "digite {min}+ letras para buscar também em mensagens e notas",
+      "searchKeywordUnavailable": "busca em mensagens indisponível — aplique a migração 065",
+      "searchIncludesMessages": "inclui mensagens do WhatsApp e notas"
     },
     "board": {
       "dropDealHere": "Solte um negócio aqui",
@@ -808,7 +814,9 @@
     "card": {
       "noContact": "Sem contato",
       "won": "Ganho",
-      "lost": "Perdido"
+      "lost": "Perdido",
+      "matchedInMessage": "Encontrado em uma mensagem do WhatsApp",
+      "matchedInNote": "Encontrado em uma nota do contato"
     },
     "form": {
       "editDeal": "Editar negócio",

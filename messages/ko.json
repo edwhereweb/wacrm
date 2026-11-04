@@ -799,7 +799,13 @@
         "proposalSent": "제안서 발송",
         "negotiation": "협상",
         "won": "성사"
-      }
+      },
+      "searchPlaceholder": "이름, 전화번호 또는 키워드 검색…",
+      "clearSearch": "검색 지우기",
+      "searchResultCount": "거래 {total}개 중 {shown}개",
+      "searchKeywordHint": "{min}자 이상 입력하면 메시지와 메모도 검색합니다",
+      "searchKeywordUnavailable": "메시지 검색을 사용할 수 없음 — 마이그레이션 065를 적용하세요",
+      "searchIncludesMessages": "WhatsApp 메시지와 메모 포함"
     },
     "board": {
       "dropDealHere": "여기에 딜을 놓으세요",
@@ -808,7 +814,9 @@
     "card": {
       "noContact": "연락처 없음",
       "won": "성사",
-      "lost": "실패"
+      "lost": "실패",
+      "matchedInMessage": "WhatsApp 메시지에서 일치",
+      "matchedInNote": "연락처 메모에서 일치"
     },
     "form": {
       "editDeal": "딜 수정",

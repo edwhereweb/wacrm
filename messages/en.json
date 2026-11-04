@@ -799,7 +799,13 @@
         "proposalSent": "Proposal Sent",
         "negotiation": "Negotiation",
         "won": "Won"
-      }
+      },
+      "searchPlaceholder": "Search name, phone, or keyword…",
+      "clearSearch": "Clear search",
+      "searchResultCount": "{shown} of {total} deals",
+      "searchKeywordHint": "type {min}+ letters to also search messages and notes",
+      "searchKeywordUnavailable": "message search unavailable — apply migration 065",
+      "searchIncludesMessages": "includes WhatsApp messages and notes"
     },
     "board": {
       "dropDealHere": "Drop a deal here",
@@ -808,7 +814,9 @@
     "card": {
       "noContact": "No contact",
       "won": "Won",
-      "lost": "Lost"
+      "lost": "Lost",
+      "matchedInMessage": "Matched in a WhatsApp message",
+      "matchedInNote": "Matched in a contact note"
     },
     "form": {
       "editDeal": "Edit Deal",
