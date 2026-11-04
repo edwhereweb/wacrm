@@ -325,6 +325,30 @@
         "hoursOnly": "{value} h",
         "days": "{value} d {remainder} h",
         "daysOnly": "{value} d"
+      },
+      "spend": {
+        "title": "Gasto en WhatsApp (aprox.)",
+        "description": "Cargos de mensajería de Meta, {days, plural, one {último día} other {últimos # días}}",
+        "editRates": "Tarifas",
+        "unavailable": "Gasto no disponible — aplica la migración 066.",
+        "beforeTax": "{amount} antes del {percent}% de impuestos",
+        "billableMessages": "{count, plural, one {# mensaje facturable} other {# mensajes facturables}}",
+        "perMessage": "{count} × {rate}",
+        "noteEstimated": "{tracked} contados con datos de facturación de Meta, {estimated} estimados a partir de plantillas entregadas. Las estimaciones de utilidad pueden ser altas: Meta no cobra plantillas de utilidad enviadas con el chat abierto.",
+        "noteTracked": "Contado con los datos de facturación de Meta de cada mensaje entregado. Las respuestas de servicio son gratis.",
+        "categories": {
+          "marketing": "Marketing",
+          "utility": "Utilidad",
+          "authentication": "Autenticación"
+        },
+        "ratesTitle": "Tarifas de Meta",
+        "ratesHelp": "Precio por mensaje entregado, sin impuestos. Los valores por defecto son las tarifas de Meta para India en 2026; revisa la página de precios de Meta cuando cambien.",
+        "currency": "Moneda (p. ej. INR)",
+        "taxPercent": "Impuesto %",
+        "resetDefaults": "Restablecer",
+        "save": "Guardar",
+        "ratesSaved": "Tarifas guardadas",
+        "ratesSaveFailed": "No se pudieron guardar las tarifas"
       }
     }
   },
