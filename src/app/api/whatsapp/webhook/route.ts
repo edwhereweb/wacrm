@@ -32,6 +32,11 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
+import {
+  chargeRowFromStatus,
+  recordMessageCharge,
+  type MetaStatusPricing,
+} from '@/lib/whatsapp/message-charges'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -138,6 +143,8 @@ interface WhatsAppWebhookEntry {
          * explanation. See #535.
          */
         errors?: MetaStatusError[]
+        /** Meta's per-message pricing for this send (billable, category). */
+        pricing?: MetaStatusPricing
       }>
     }
     field: string
@@ -417,9 +424,20 @@ async function handleStatusUpdate(
     timestamp: string
     recipient_id: string
     errors?: MetaStatusError[]
+    pricing?: MetaStatusPricing
   },
   accountId: string | null
 ) {
+  // Record what Meta charges for this message (admin spend card).
+  if (accountId) {
+    const charge = chargeRowFromStatus(
+      accountId,
+      status,
+      metaTimestampToIso(status.timestamp) ?? new Date().toISOString()
+    )
+    if (charge) await recordMessageCharge(supabaseAdmin(), charge)
+  }
+
   // Meta's reason for a failed send (#535). Only read on `failed`; a
   // later non-failed status for the same wamid leaves the error
   // columns alone rather than clearing them, so the reason survives.

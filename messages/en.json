@@ -325,6 +325,30 @@
         "hoursOnly": "{value} h",
         "days": "{value} d {remainder} h",
         "daysOnly": "{value} d"
+      },
+      "spend": {
+        "title": "WhatsApp spend (approx.)",
+        "description": "Meta messaging charges, last {days, plural, one {day} other {# days}}",
+        "editRates": "Rates",
+        "unavailable": "Spend is unavailable — apply database migration 066.",
+        "beforeTax": "{amount} before {percent}% tax",
+        "billableMessages": "{count, plural, one {# billable message} other {# billable messages}}",
+        "perMessage": "{count} × {rate}",
+        "noteEstimated": "{tracked} counted from Meta’s billing data, {estimated} estimated from delivered templates. Utility estimates may be high: Meta doesn’t charge utility templates sent while a chat is open.",
+        "noteTracked": "Counted from Meta’s billing data on each delivered message. Service replies are free.",
+        "categories": {
+          "marketing": "Marketing",
+          "utility": "Utility",
+          "authentication": "Authentication"
+        },
+        "ratesTitle": "Meta rate card",
+        "ratesHelp": "Price per delivered message, before tax. Defaults are Meta’s India rates for 2026; check Meta’s pricing page when they change.",
+        "currency": "Currency (e.g. INR)",
+        "taxPercent": "Tax %",
+        "resetDefaults": "Reset to defaults",
+        "save": "Save",
+        "ratesSaved": "Rates saved",
+        "ratesSaveFailed": "Could not save rates"
       }
     }
   },

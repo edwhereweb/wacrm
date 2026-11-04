@@ -30,6 +30,8 @@ import { PipelineCard } from '@/components/dashboard/pipeline-card'
 import { ReplyQueueCard } from '@/components/dashboard/reply-queue-card'
 import { SetupChecklist } from '@/components/dashboard/setup-checklist'
 import { TeamCard } from '@/components/dashboard/team-card'
+import { WhatsAppSpendCard } from '@/components/dashboard/whatsapp-spend-card'
+import { useCan } from '@/hooks/use-can'
 
 const POLL_MS = 60_000
 const REALTIME_DEBOUNCE_MS = 2_000
@@ -47,7 +49,9 @@ function DashboardPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const range = parseOverviewRange(searchParams.get('range'))
-  const { defaultCurrency, profile } = useAuth()
+  const { defaultCurrency, profile, accountId } = useAuth()
+  // Messaging spend is admin information.
+  const canSeeSpend = useCan('edit-settings')
 
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [failed, setFailed] = useState(false)
@@ -170,6 +174,10 @@ function DashboardPageInner() {
               <CampaignsCard data={data} />
             </div>
           </div>
+
+          {canSeeSpend && accountId && (
+            <WhatsAppSpendCard accountId={accountId} days={range} />
+          )}
 
           <ActivityFeed items={activity} loading={activityLoading} />
         </>
