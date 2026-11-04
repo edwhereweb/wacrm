@@ -1,9 +1,10 @@
 "use client";
 
 import type { Deal, PipelineStage } from "@/types";
-import { Calendar, Check, X } from "lucide-react";
+import { Calendar, Check, MessageSquare, StickyNote, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
+import { useDealSearchMatch } from "./search-match-context";
 
 interface DealCardProps {
   deal: Deal;
@@ -30,6 +31,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const t = useTranslations("Pipelines.card");
   const contactLabel = deal.contact?.name || deal.contact?.phone || t("noContact");
   const assigneeLabel = deal.assignee?.full_name || null;
+  const searchMatch = useDealSearchMatch(deal.id);
 
   return (
     <button
@@ -79,6 +81,22 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         </span>
         <span className="truncate text-xs text-muted-foreground">{contactLabel}</span>
       </div>
+
+      {searchMatch?.snippet && (
+        <div
+          className="mt-2 flex items-start gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] leading-snug text-foreground"
+          title={
+            searchMatch.source === "note" ? t("matchedInNote") : t("matchedInMessage")
+          }
+        >
+          {searchMatch.source === "note" ? (
+            <StickyNote className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+          ) : (
+            <MessageSquare className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+          )}
+          <span className="line-clamp-2 break-words">{searchMatch.snippet}</span>
+        </div>
+      )}
 
       <div className="mt-2 flex items-center justify-between">
         <span className="text-sm font-bold text-primary">

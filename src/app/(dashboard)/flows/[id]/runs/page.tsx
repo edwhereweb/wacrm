@@ -338,7 +338,7 @@ function EventLine({ ev }: { ev: EventRow }) {
         </code>
       )}
       {Object.keys(ev.payload).length > 0 && (
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+        <span className="min-w-0 break-words text-[10px] text-muted-foreground">
           {summarizePayload(ev.payload)}
         </span>
       )}
@@ -352,7 +352,13 @@ function summarizePayload(payload: Record<string, unknown>): string {
   const keys = ["reply_id", "captured_key", "reason", "advancing_to"];
   for (const k of keys) {
     if (k in payload && payload[k] !== null && payload[k] !== undefined) {
-      return `${k}=${String(payload[k]).slice(0, 80)}`;
+      const summary = `${k}=${String(payload[k]).slice(0, 80)}`;
+      // Errors carry WhatsApp's own message in `detail` (e.g. why an
+      // audio file was rejected) — that is the part worth reading.
+      const detail = payload.detail;
+      return typeof detail === "string" && detail
+        ? `${summary} — ${detail.slice(0, 300)}`
+        : summary;
     }
   }
   return "";

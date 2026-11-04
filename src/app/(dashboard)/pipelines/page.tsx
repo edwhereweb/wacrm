@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GitBranch, Plus, ChevronDown, Settings, Download, Loader2 } from "lucide-react";
+import { GitBranch, Plus, ChevronDown, Settings, Download, Loader2, Search, X } from "lucide-react";
 import {
   buildPipelineCsv,
   downloadCsv,
@@ -32,6 +32,12 @@ import {
   fetchAllPipelineDeals,
   pipelineExportFilename,
 } from "@/lib/pipelines/export";
+import {
+  filterDeals,
+  KEYWORD_SEARCH_MIN_CHARS,
+  type DealKeywordMatch,
+} from "@/lib/pipelines/search";
+import { DealSearchMatchContext } from "@/components/pipelines/search-match-context";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
@@ -80,6 +86,16 @@ export default function PipelinesPage() {
   const [dealFormOpen, setDealFormOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>("");
+
+  // Board search. Name / phone / email / title / deal notes are matched
+  // in the browser on the loaded deals; keywords are also looked up in
+  // WhatsApp messages and contact notes via search_pipeline_deals.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [keywordMatches, setKeywordMatches] = useState<
+    ReadonlyMap<string, DealKeywordMatch>
+  >(new Map());
+  const [keywordSearching, setKeywordSearching] = useState(false);
+  const [keywordSearchFailed, setKeywordSearchFailed] = useState(false);
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -206,6 +222,50 @@ export default function PipelinesPage() {
       cancelled = true;
     };
   }, [selectedPipelineId, loadStages, loadDeals]);
+
+  // Keyword search in messages + notes, debounced. Results are tagged
+  // with the query they answer so a slow response for an older query
+  // never overwrites a newer one.
+  const keywordQuery = searchQuery.trim();
+  const runKeywordSearch =
+    !!selectedPipelineId && keywordQuery.length >= KEYWORD_SEARCH_MIN_CHARS;
+  const keywordSeq = useRef(0);
+  useEffect(() => {
+    const seq = ++keywordSeq.current;
+    if (!runKeywordSearch) {
+      setKeywordMatches(new Map());
+      setKeywordSearching(false);
+      return;
+    }
+    setKeywordSearching(true);
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase.rpc("search_pipeline_deals", {
+        p_pipeline_id: selectedPipelineId,
+        p_query: keywordQuery,
+      });
+      if (seq !== keywordSeq.current) return;
+      setKeywordSearching(false);
+      if (error) {
+        console.error("Keyword search failed:", error.message);
+        setKeywordSearchFailed(true);
+        setKeywordMatches(new Map());
+        return;
+      }
+      setKeywordSearchFailed(false);
+      setKeywordMatches(
+        new Map(
+          ((data ?? []) as DealKeywordMatch[]).map((m) => [m.deal_id, m]),
+        ),
+      );
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [runKeywordSearch, keywordQuery, selectedPipelineId, supabase]);
+
+  const visibleDeals = useMemo(
+    () => filterDeals(deals, searchQuery, keywordMatches),
+    [deals, searchQuery, keywordMatches],
+  );
+  const searching = searchQuery.trim().length > 0;
 
   const refreshPipelines = useCallback(async () => {
     const list = await loadPipelines();
@@ -378,7 +438,10 @@ export default function PipelinesPage() {
               {pipelines.map((p) => (
                 <DropdownMenuItem
                   key={p.id}
-                  onClick={() => setSelectedPipelineId(p.id)}
+                  onClick={() => {
+                    setSelectedPipelineId(p.id);
+                    setSearchQuery("");
+                  }}
                   className={
                     p.id === selectedPipelineId
                       ? "text-primary"
@@ -463,13 +526,57 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineAnalytics stages={stages} deals={deals} />
-          <PipelineBoard
-            stages={stages}
-            deals={deals}
-            onDealMoved={handleDealMoved}
-            onAddDeal={handleAddDeal}
-            onEditDeal={handleEditDeal}
-          />
+
+          {/* Search: name / number instantly, keywords in messages + notes */}
+          <div className="flex flex-col gap-1.5">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setSearchQuery("");
+                }}
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("searchPlaceholder")}
+                className="border-border bg-card pl-9 pr-9 text-foreground"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label={t("clearSearch")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {searching && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {keywordSearching && <Loader2 className="h-3 w-3 animate-spin" />}
+                {t("searchResultCount", {
+                  shown: visibleDeals.length,
+                  total: deals.length,
+                })}
+                {searchQuery.trim().length < KEYWORD_SEARCH_MIN_CHARS
+                  ? ` · ${t("searchKeywordHint", { min: KEYWORD_SEARCH_MIN_CHARS })}`
+                  : keywordSearchFailed
+                    ? ` · ${t("searchKeywordUnavailable")}`
+                    : ` · ${t("searchIncludesMessages")}`}
+              </p>
+            )}
+          </div>
+
+          <DealSearchMatchContext.Provider value={keywordMatches}>
+            <PipelineBoard
+              stages={stages}
+              deals={visibleDeals}
+              onDealMoved={handleDealMoved}
+              onAddDeal={handleAddDeal}
+              onEditDeal={handleEditDeal}
+            />
+          </DealSearchMatchContext.Provider>
         </>
       )}
 
