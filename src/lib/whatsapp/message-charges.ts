@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { phonePrefix } from './pricing-countries'
 
 /**
  * The `pricing` block Meta attaches to message status webhooks
@@ -20,6 +21,8 @@ export interface MessageChargeRow {
   pricing_type: string | null
   pricing_model: string | null
   delivered_at: string
+  /** First digits of the recipient's number: Meta prices by country. */
+  recipient_prefix: string | null
 }
 
 /** Meta charges a template message once it is delivered. */
@@ -34,6 +37,7 @@ export function chargeRowFromStatus(
   status: {
     id: string
     status: string
+    recipient_id?: string | null
     pricing?: MetaStatusPricing | null
   },
   deliveredAt: string,
@@ -58,6 +62,7 @@ export function chargeRowFromStatus(
     pricing_type: type,
     pricing_model: pricing.pricing_model?.trim() || null,
     delivered_at: deliveredAt,
+    recipient_prefix: phonePrefix(status.recipient_id),
   }
 }
 

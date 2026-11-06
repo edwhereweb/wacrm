@@ -11,6 +11,7 @@ describe('chargeRowFromStatus', () => {
         {
           id: 'wamid.1',
           status: 'delivered',
+          recipient_id: '919876543210',
           pricing: { billable: true, pricing_model: 'PMP', category: 'marketing', type: 'regular' },
         },
         AT,
@@ -23,6 +24,7 @@ describe('chargeRowFromStatus', () => {
       pricing_type: 'regular',
       pricing_model: 'PMP',
       delivered_at: AT,
+      recipient_prefix: '9198',
     })
   })
 

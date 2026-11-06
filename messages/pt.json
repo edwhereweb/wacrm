@@ -330,10 +330,9 @@
         "title": "Gasto com WhatsApp (aprox.)",
         "description": "Cobranças de mensagens da Meta, {days, plural, one {último dia} other {últimos # dias}}",
         "editRates": "Tarifas",
-        "unavailable": "Gasto indisponível — aplique a migração 066.",
+        "unavailable": "Gasto indisponível — aplique as migrações 066 e 067.",
         "beforeTax": "{amount} antes de {percent}% de impostos",
         "billableMessages": "{count, plural, one {# mensagem cobrável} other {# mensagens cobráveis}}",
-        "perMessage": "{count} × {rate}",
         "noteEstimated": "{tracked} contadas pelos dados de cobrança da Meta, {estimated} estimadas a partir de modelos entregues. Estimativas de utilidade podem ser altas: a Meta não cobra modelos de utilidade enviados com a conversa aberta.",
         "noteTracked": "Contado pelos dados de cobrança da Meta de cada mensagem entregue. Respostas de atendimento são gratuitas.",
         "categories": {
@@ -342,13 +341,36 @@
           "authentication": "Autenticação"
         },
         "ratesTitle": "Tabela de preços da Meta",
-        "ratesHelp": "Preço por mensagem entregue, sem impostos. Os padrões são as tarifas da Meta para a Índia em 2026; confira a página de preços da Meta quando mudarem.",
+        "ratesHelp": "Preço por mensagem entregue, sem impostos. A Meta cobra cada mensagem pelo país do destinatário (pelo número). Os padrões são as tarifas da Meta para a Índia em 2026; confira a página de preços da Meta quando mudarem.",
         "currency": "Moeda (ex.: INR)",
         "taxPercent": "Imposto %",
         "resetDefaults": "Restaurar padrão",
         "save": "Salvar",
         "ratesSaved": "Tarifas salvas",
-        "ratesSaveFailed": "Não foi possível salvar as tarifas"
+        "ratesSaveFailed": "Não foi possível salvar as tarifas",
+        "descriptionRange": "Cobranças de mensagens da Meta, {from} – {to}",
+        "rangeLabel": "Período",
+        "from": "De",
+        "to": "Até",
+        "presets": {
+          "dashboard": "{days, plural, one {Último dia} other {Últimos # dias}}",
+          "thisMonth": "Este mês",
+          "lastMonth": "Mês passado",
+          "custom": "Período personalizado"
+        },
+        "invalidRange": "Escolha uma data inicial igual ou anterior à final, com no máximo {max} dias.",
+        "messagesCount": "{count, plural, one {# mensagem} other {# mensagens}}",
+        "byCountry": "Por país do destinatário",
+        "defaultRateTag": "· tarifa padrão",
+        "unknownCountry": "País desconhecido",
+        "northAmerica": "Estados Unidos e Canadá",
+        "defaultRates": "Tarifas padrão",
+        "defaultRatesHelp": "Usadas para todos os países sem tarifas próprias abaixo.",
+        "countryRates": "Tarifas por país",
+        "countryRatesHelp": "Informe as tarifas da Meta dos países para os quais você envia, na mesma moeda.",
+        "addCountry": "Adicionar país",
+        "country": "País",
+        "removeCountry": "Remover {country}"
       }
     }
   },

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_RATE_CARD,
+  daysBetween,
+  isValidRange,
   lastLocalDays,
+  presetRange,
   priceCategory,
   summarizeSpend,
   type SpendDailyRow,
@@ -82,5 +85,68 @@ describe('lastLocalDays', () => {
       { day: '2026-11-03', cost: 1.15 },
       { day: '2026-11-04', cost: 0 },
     ])
+  })
+})
+
+describe('country pricing', () => {
+  const rows: SpendDailyRow[] = [
+    { day: '2026-11-02', category: 'marketing', source: 'tracked', phone_prefix: '9198', messages: 100 },
+    { day: '2026-11-02', category: 'marketing', source: 'tracked', phone_prefix: '9715', messages: 10 },
+    { day: '2026-11-02', category: 'utility', source: 'estimated', phone_prefix: '9715', messages: 4 },
+    { day: '2026-11-02', category: 'marketing', source: 'estimated', phone_prefix: null, messages: 2 },
+  ]
+  const uae = { country: 'AE', marketing: 3.5, utility: 1.2, authentication: 1 }
+
+  it('uses a country’s own rates and the default rates for the rest', () => {
+    const s = summarizeSpend(rows, DEFAULT_RATE_CARD, [], [uae])
+    // India + unknown at default: 102 × 0.8631 = 88.0362; UAE: 10 × 3.5 + 4 × 1.2 = 39.8
+    expect(s.subtotal).toBe(127.84)
+    expect(s.categories[0]).toEqual({ category: 'marketing', messages: 112, cost: 123.04 })
+    expect(s.categories[1]).toEqual({ category: 'utility', messages: 4, cost: 4.8 })
+  })
+
+  it('breaks spend down by country, dearest first', () => {
+    const s = summarizeSpend(rows, DEFAULT_RATE_CARD, [], [uae])
+    expect(s.countries).toEqual([
+      { country: 'IN', messages: 100, cost: 86.31, customRates: false },
+      { country: 'AE', messages: 14, cost: 39.8, customRates: true },
+      { country: null, messages: 2, cost: 1.73, customRates: false },
+    ])
+  })
+
+  it('keeps a zero country rate (free) instead of falling back', () => {
+    const s = summarizeSpend(rows, DEFAULT_RATE_CARD, [], [{ ...uae, marketing: 0, utility: 0 }])
+    expect(s.countries.find((c) => c.country === 'AE')?.cost).toBe(0)
+  })
+})
+
+describe('date ranges', () => {
+  const now = new Date('2026-11-06T10:00:00Z')
+
+  it('lists every day of a range, across months', () => {
+    expect(daysBetween('2026-10-30', '2026-11-02')).toEqual([
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+    ])
+  })
+
+  it('builds the presets in local time', () => {
+    expect(presetRange('lastDays', 'UTC', 7, now)).toEqual({ from: '2026-10-31', to: '2026-11-06' })
+    expect(presetRange('thisMonth', 'UTC', 7, now)).toEqual({ from: '2026-11-01', to: '2026-11-06' })
+    expect(presetRange('lastMonth', 'UTC', 7, now)).toEqual({ from: '2026-10-01', to: '2026-10-31' })
+    expect(presetRange('lastMonth', 'UTC', 7, new Date('2026-01-15T00:00:00Z'))).toEqual({
+      from: '2025-12-01',
+      to: '2025-12-31',
+    })
+  })
+
+  it('rejects reversed, empty or over-long ranges', () => {
+    expect(isValidRange({ from: '2026-11-01', to: '2026-11-01' })).toBe(true)
+    expect(isValidRange({ from: '2026-11-02', to: '2026-11-01' })).toBe(false)
+    expect(isValidRange({ from: '', to: '2026-11-01' })).toBe(false)
+    expect(isValidRange({ from: '2025-11-06', to: '2026-11-06' })).toBe(true) // 366 days
+    expect(isValidRange({ from: '2025-11-05', to: '2026-11-06' })).toBe(false)
   })
 })
