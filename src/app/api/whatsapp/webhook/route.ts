@@ -23,6 +23,7 @@ import { resumeAwaitingReply, runAutomationsForTrigger } from '@/lib/automations
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
+import { notifyInboundMessage } from '@/lib/mobile/push'
 import {
   applyBroadcastRecipientStatus,
   flagBroadcastReply,
@@ -947,6 +948,14 @@ async function processMessage(
     whatsapp_message_id: message.id,
     content_type: contentType,
     text: contentText,
+  })
+
+  // Mobile app push (EdWhere fork). Awaited for the same `after()` reason; never throws.
+  await notifyInboundMessage(supabaseAdmin(), {
+    accountId,
+    conversationId: conversation.id,
+    text: contentText,
+    contentType,
   })
 }
 

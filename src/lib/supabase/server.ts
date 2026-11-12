@@ -1,7 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { createBearerClient, parseBearerJwt } from '@/lib/mobile/bearer'
 
 export async function createClient() {
+  // Mobile app requests authenticate with a bearer token, not cookies.
+  const bearer = parseBearerJwt((await headers()).get('authorization'))
+  if (bearer) return createBearerClient(bearer)
+
   const cookieStore = await cookies()
 
   return createServerClient(
