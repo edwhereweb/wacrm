@@ -106,6 +106,17 @@ describe('POST messages', () => {
     }))
   })
 
+  it('forwards an interactive payload to the send core', async () => {
+    tables.conversations = { data: { id: CONV }, error: null }
+    send.mockResolvedValue({ messageId: 'm9', whatsappMessageId: 'wamid.9' })
+    const payload = { kind: 'buttons', body: 'Pick one', buttons: [{ id: 'a', title: 'A' }] }
+    await post({ message_type: 'interactive', interactive_payload: payload })
+    expect(send).toHaveBeenCalledWith(client, 'acct-1', expect.objectContaining({
+      messageType: 'interactive',
+      interactivePayload: payload,
+    }))
+  })
+
   it('passes the send core’s reason through for the app to branch on', async () => {
     tables.conversations = { data: { id: CONV }, error: null }
     send.mockRejectedValue(new SendMessageError('meta_error', 'Meta said no', 502))
