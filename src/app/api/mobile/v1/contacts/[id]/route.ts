@@ -1,4 +1,4 @@
-// GET    /api/mobile/v1/contacts/{id} — contact, tags, custom field values and its chat (if any).
+// GET    /api/mobile/v1/contacts/{id} — contact, tags, every custom field with its value, and its chat (if any).
 // PATCH  /api/mobile/v1/contacts/{id} — { name?, email?, company? } (agent+); null clears a field.
 // DELETE /api/mobile/v1/contacts/{id} — (agent+) chats stay, unlinked (migration 004).
 
@@ -33,10 +33,13 @@ export async function GET(_request: Request, { params }: Params) {
     const valueById = new Map((values.data ?? []).map((v) => [v.custom_field_id as string, v.value as string | null]))
     return ok({
       ...contact,
-      // shortcut: read-only on mobile; editing custom fields stays on the web for now.
-      custom_fields: (fields.data ?? [])
-        .map((f) => ({ id: f.id, name: f.field_name, type: f.field_type, value: valueById.get(f.id) ?? null }))
-        .filter((f) => f.value),
+      // Every field, set or not, so the app can edit them (PUT …/custom-values).
+      custom_fields: (fields.data ?? []).map((f) => ({
+        id: f.id,
+        name: f.field_name,
+        type: f.field_type,
+        value: valueById.get(f.id) ?? null,
+      })),
       conversation: conv.data ?? null,
     })
   } catch (err) {

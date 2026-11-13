@@ -2,7 +2,7 @@
 //      Polling re-reads the first page, which also picks up delivery-status changes.
 // POST /api/mobile/v1/conversations/{id}/messages — send (agent+), body:
 //      { message_type, content_text?, media_url?, filename?, template_name?,
-//        template_language?, template_params?, reply_to_message_id? }
+//        template_language?, template_params?, interactive_payload?, reply_to_message_id? }
 
 import { getCurrentAccount, requireRole } from '@/lib/auth/account'
 import {
@@ -23,7 +23,7 @@ import {
 } from '@/lib/mobile/respond'
 import { SendMessageError, sendMessageToConversation } from '@/lib/whatsapp/send-message'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Message, MessageReaction } from '@/types'
+import type { InteractiveMessagePayload, Message, MessageReaction } from '@/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -106,6 +106,8 @@ export async function POST(request: Request, { params }: Params) {
         templateName: str(body.template_name),
         templateLanguage: str(body.template_language),
         templateParams,
+        // Validated by the send core (lib/whatsapp/interactive) before anything reaches Meta.
+        interactivePayload: (body.interactive_payload ?? null) as InteractiveMessagePayload | null,
         replyToMessageId: str(body.reply_to_message_id),
         senderId: userId,
       })
